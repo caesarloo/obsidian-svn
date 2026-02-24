@@ -69,13 +69,6 @@
         gap: 14px;
       }
 
-      .repo-card {
-        background: linear-gradient(140deg, #1c313a, #1b3c38);
-        border-radius: 12px;
-        padding: 14px;
-        border: 1px solid rgba(255, 255, 255, 0.08);
-      }
-
       .repo-meta {
         display: flex;
         flex-direction: column;
@@ -86,7 +79,7 @@
 
       .actions {
         display: grid;
-        grid-template-columns: repeat(6, 1fr);
+        grid-template-columns: repeat(5, 1fr);
         gap: 8px;
       }
 
@@ -279,26 +272,6 @@
         color: var(--muted);
       }
 
-      .status-item {
-        background: #1b323c;
-        border-radius: 12px;
-        padding: 12px;
-        display: grid;
-        grid-template-columns: 1fr auto;
-        gap: 8px;
-        border: 1px solid rgba(255, 255, 255, 0.06);
-      }
-
-      .status-item .path {
-        font-size: 13px;
-        color: var(--text);
-      }
-
-      .status-item .meta {
-        font-size: 12px;
-        color: var(--muted);
-      }
-
       .tag {
         padding: 4px 8px;
         border-radius: 999px;
@@ -311,11 +284,20 @@
       .tag.deleted { background: rgba(255, 122, 122, 0.2); color: var(--danger); }
       .tag.conflict { background: rgba(242, 165, 92, 0.2); color: var(--warn); }
       .tag.untracked { background: rgba(107, 208, 194, 0.2); color: var(--accent-2); }
+      .tag.staged { background: rgba(107, 208, 194, 0.2); color: var(--accent-2); }
 
       .aside {
         display: flex;
         flex-direction: column;
         gap: 14px;
+      }
+
+      .conflict-panel {
+        display: none;
+      }
+
+      .conflict-panel.is-visible {
+        display: flex;
       }
 
       .commit-box textarea {
@@ -334,20 +316,61 @@
         color: var(--muted);
       }
 
-      .log-item {
-        border-left: 3px solid var(--accent-2);
-        padding-left: 10px;
-        margin-bottom: 12px;
+      .modal-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.45);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
       }
 
-      .log-item .title {
-        font-size: 13px;
+      .modal-backdrop.is-open {
+        display: flex;
+      }
+
+      .modal {
+        width: min(520px, 100%);
+        background: var(--card);
+        border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: var(--shadow);
+        padding: 16px;
+      }
+
+      .modal-title {
+        font-size: 16px;
         font-weight: 600;
+        margin-bottom: 10px;
       }
 
-      .log-item .desc {
+      .field {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        margin-bottom: 10px;
+      }
+
+      .field label {
         font-size: 12px;
         color: var(--muted);
+      }
+
+      .field input {
+        height: 34px;
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        background: #12232b;
+        color: var(--text);
+        padding: 0 10px;
+      }
+
+      .modal-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        margin-top: 10px;
       }
 
       .footer-note {
@@ -425,7 +448,7 @@
         <div class="section-title">提交</div>
         <div class="commit-box">
           <textarea placeholder="填写提交备注，例如：更新需求文档与原型"></textarea>
-          <div class="helper-text" style="margin-top: 10px;">使用左侧“提交变更”图标执行提交</div>
+          <div class="helper-text" style="margin-top: 10px;">“生成摘要”仅填充文本框，不会自动提交；使用左侧“提交变更”图标执行提交</div>
         </div>
 
         <div class="section-title">变动文件（文件树）</div>
@@ -442,7 +465,7 @@
                         <path d="M5 12h14" />
                       </svg>
                     </button>
-                    <button class="mini-btn" title="撤销">
+                    <button class="mini-btn" title="还原">
                       <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
                         <path d="M9 14l-4-4 4-4" />
                         <path d="M5 10h9a5 5 0 1 1 0 10h-2" />
@@ -456,14 +479,14 @@
                   <div class="tree-node file">
                     <div class="tree-label">2026-02-24.md</div>
                     <span class="tag added">新增</span>
+                    <span class="tag staged">已暂存</span>
                     <div class="tree-actions">
-                      <button class="mini-btn" title="暂存">
+                      <button class="mini-btn" title="取消暂存">
                         <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
-                          <path d="M12 5v14" />
                           <path d="M5 12h14" />
                         </svg>
                       </button>
-                      <button class="mini-btn" title="撤销">
+                      <button class="mini-btn" title="还原">
                         <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
                           <path d="M9 14l-4-4 4-4" />
                           <path d="M5 10h9a5 5 0 1 1 0 10h-2" />
@@ -487,7 +510,7 @@
                         <path d="M5 12h14" />
                       </svg>
                     </button>
-                    <button class="mini-btn" title="撤销">
+                    <button class="mini-btn" title="还原">
                       <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
                         <path d="M9 14l-4-4 4-4" />
                         <path d="M5 10h9a5 5 0 1 1 0 10h-2" />
@@ -508,7 +531,7 @@
                           <path d="M5 12h14" />
                         </svg>
                       </button>
-                      <button class="mini-btn" title="撤销">
+                      <button class="mini-btn" title="还原">
                         <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
                           <path d="M9 14l-4-4 4-4" />
                           <path d="M5 10h9a5 5 0 1 1 0 10h-2" />
@@ -532,7 +555,7 @@
                         <path d="M5 12h14" />
                       </svg>
                     </button>
-                    <button class="mini-btn" title="撤销">
+                    <button class="mini-btn" title="还原">
                       <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
                         <path d="M9 14l-4-4 4-4" />
                         <path d="M5 10h9a5 5 0 1 1 0 10h-2" />
@@ -553,7 +576,7 @@
                           <path d="M5 12h14" />
                         </svg>
                       </button>
-                      <button class="mini-btn" title="撤销">
+                      <button class="mini-btn" title="还原">
                         <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
                           <path d="M9 14l-4-4 4-4" />
                           <path d="M5 10h9a5 5 0 1 1 0 10h-2" />
@@ -577,7 +600,7 @@
                         <path d="M5 12h14" />
                       </svg>
                     </button>
-                    <button class="mini-btn" title="撤销">
+                    <button class="mini-btn" title="还原">
                       <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
                         <path d="M9 14l-4-4 4-4" />
                         <path d="M5 10h9a5 5 0 1 1 0 10h-2" />
@@ -598,7 +621,7 @@
                           <path d="M5 12h14" />
                         </svg>
                       </button>
-                      <button class="mini-btn" title="撤销">
+                      <button class="mini-btn" title="还原">
                         <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
                           <path d="M9 14l-4-4 4-4" />
                           <path d="M5 10h9a5 5 0 1 1 0 10h-2" />
@@ -614,14 +637,14 @@
             <div class="tree-node file">
               <div class="tree-label">roadmap.md</div>
               <span class="tag modified">修改</span>
+              <span class="tag staged">已暂存</span>
               <div class="tree-actions">
-                <button class="mini-btn" title="暂存">
+                <button class="mini-btn" title="取消暂存">
                   <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
-                    <path d="M12 5v14" />
                     <path d="M5 12h14" />
                   </svg>
                 </button>
-                <button class="mini-btn" title="撤销">
+                <button class="mini-btn" title="还原">
                   <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
                     <path d="M9 14l-4-4 4-4" />
                     <path d="M5 10h9a5 5 0 1 1 0 10h-2" />
@@ -633,7 +656,7 @@
         </ul>
       </main>
 
-      <aside class="aside panel">
+      <aside class="aside panel conflict-panel is-visible">
         <div class="section-title">冲突提示（仅在存在冲突时显示）</div>
         <div class="repo-meta">
           <span>1) 打开冲突文件，手动合并内容。</span>
@@ -643,6 +666,26 @@
         </div>
       </aside>
     </div>
+
+    <div class="modal-backdrop is-open">
+      <div class="modal">
+        <div class="modal-title">仓库配置</div>
+        <div class="field">
+          <label>用户名</label>
+          <input type="text" value="user.name" />
+        </div>
+        <div class="field">
+          <label>密码</label>
+          <input type="password" value="******" />
+        </div>
+        <div class="modal-actions">
+          <button class="btn">取消</button>
+          <button class="btn primary">保存</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer-note">无冲突态：移除冲突面板上的 is-visible 类后隐藏</div>
     <div class="footer-note">原型仅用于交互与布局示意</div>
   </body>
 </html>
