@@ -86,8 +86,35 @@
 
       .actions {
         display: grid;
-        grid-template-columns: repeat(3, 1fr);
+        grid-template-columns: repeat(6, 1fr);
         gap: 8px;
+      }
+
+      .icon-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        height: 42px;
+        width: 100%;
+        background: #213945;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 12px;
+        cursor: pointer;
+      }
+
+      .icon-btn.primary {
+        background: linear-gradient(135deg, var(--accent), #ffdd8b);
+      }
+
+      .icon-btn svg {
+        width: 18px;
+        height: 18px;
+        stroke: currentColor;
+        color: var(--text);
+      }
+
+      .icon-btn.primary svg {
+        color: #1b1b1b;
       }
 
       .btn {
@@ -136,6 +163,92 @@
         display: flex;
         flex-direction: column;
         gap: 10px;
+      }
+
+      .file-tree {
+        list-style: none;
+        padding-left: 0;
+        margin: 0;
+      }
+
+      .file-tree li {
+        margin: 8px 0;
+      }
+
+      .tree-node {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 10px;
+        background: #1b323c;
+        border-radius: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+      }
+
+      .tree-node.folder {
+        background: transparent;
+        border: none;
+        padding: 4px 2px;
+      }
+
+      .tree-node.file {
+        background: #1b323c;
+      }
+
+      .tree-folder {
+        padding: 6px 6px;
+        border-radius: 8px;
+      }
+
+      .tree-folder summary {
+        list-style: none;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .tree-folder summary::-webkit-details-marker {
+        display: none;
+      }
+
+      .tree-folder summary::before {
+        content: "-";
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 18px;
+        height: 18px;
+        border-radius: 4px;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        color: var(--muted);
+        font-weight: 700;
+      }
+
+      .tree-folder details[open] summary::before {
+        content: "+";
+      }
+
+      .tree-folder .tree-children {
+        margin-left: 24px;
+      }
+
+      .tree-children {
+        list-style: none;
+        padding-left: 18px;
+        margin: 8px 0 0 0;
+        border-left: 1px dashed rgba(255, 255, 255, 0.1);
+      }
+
+      .tree-label {
+        font-size: 13px;
+        color: var(--text);
+        flex: 1;
+      }
+
+      .tree-hint {
+        font-size: 12px;
+        color: var(--muted);
       }
 
       .status-item {
@@ -188,6 +301,11 @@
         resize: vertical;
       }
 
+      .helper-text {
+        font-size: 12px;
+        color: var(--muted);
+      }
+
       .log-item {
         border-left: 3px solid var(--accent-2);
         padding-left: 10px;
@@ -231,98 +349,137 @@
     <div class="app">
       <aside class="sidebar panel">
         <div class="brand">OBSIDIAN SVN</div>
-        <div class="section-title">仓库</div>
-        <div class="repo-card">
-          <div>当前仓库：笔记库-SVN</div>
-          <div class="repo-meta">
-            <span>URL: https://svn.example.com/notes</span>
-            <span>路径: C:/Vaults/Notes</span>
-            <span>状态: 已绑定</span>
-          </div>
-        </div>
         <div class="section-title">快速操作</div>
         <div class="actions">
-          <button class="btn primary">更新</button>
-          <button class="btn">提交</button>
-          <button class="btn">刷新</button>
-          <button class="btn">检出</button>
-          <button class="btn">日志</button>
-          <button class="btn ghost">设置</button>
-        </div>
-        <div class="section-title">过滤</div>
-        <div class="toolbar">
-          <span class="chip">全部</span>
-          <span class="chip">已变更</span>
-          <span class="chip">冲突</span>
-          <span class="chip">未跟踪</span>
+          <button class="icon-btn" title="更新">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+              <path d="M12 3v12" />
+              <path d="M7 10l5 5 5-5" />
+              <path d="M4 20h16" />
+            </svg>
+          </button>
+          <button class="icon-btn" title="生成日志">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+              <path d="M9 4l1.4 2.6L13 8l-2.6 1.4L9 12l-1.4-2.6L5 8l2.6-1.4L9 4z" />
+              <path d="M16.5 12l1 1.8 1.8 1-1.8 1-1 1.8-1-1.8-1.8-1 1.8-1 1-1.8z" />
+            </svg>
+          </button>
+          <button class="icon-btn" title="提交变更">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+              <path d="M12 3v12" />
+              <path d="M7 8l5-5 5 5" />
+              <path d="M5 21h14" />
+            </svg>
+          </button>
+          <button class="icon-btn" title="刷新">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+              <path d="M21 12a9 9 0 1 1-3.1-6.7" />
+              <path d="M21 3v6h-6" />
+            </svg>
+          </button>
+          <button class="icon-btn" title="设置">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+              <circle cx="12" cy="12" r="6" />
+              <path d="M12 2v3" />
+              <path d="M12 19v3" />
+              <path d="M2 12h3" />
+              <path d="M19 12h3" />
+              <path d="M4.8 4.8l2.1 2.1" />
+              <path d="M17.1 17.1l2.1 2.1" />
+              <path d="M19.2 4.8l-2.1 2.1" />
+              <path d="M6.9 17.1l-2.1 2.1" />
+            </svg>
+          </button>
         </div>
       </aside>
 
       <main class="content panel">
-        <div class="section-title">工作副本状态</div>
-        <div class="status-list">
-          <div class="status-item">
-            <div>
-              <div class="path">notes/roadmap.md</div>
-              <div class="meta">修改于 2 分钟前</div>
-            </div>
-            <span class="tag modified">修改</span>
-          </div>
-          <div class="status-item">
-            <div>
-              <div class="path">notes/meeting/2026-02-24.md</div>
-              <div class="meta">新文件</div>
-            </div>
-            <span class="tag added">新增</span>
-          </div>
-          <div class="status-item">
-            <div>
-              <div class="path">notes/specs/old-plan.md</div>
-              <div class="meta">待删除</div>
-            </div>
-            <span class="tag deleted">删除</span>
-          </div>
-          <div class="status-item">
-            <div>
-              <div class="path">notes/research/merge-conflict.md</div>
-              <div class="meta">需要手动处理冲突</div>
-            </div>
-            <span class="tag conflict">冲突</span>
-          </div>
-          <div class="status-item">
-            <div>
-              <div class="path">notes/assets/draft.png</div>
-              <div class="meta">未跟踪文件</div>
-            </div>
-            <span class="tag untracked">未跟踪</span>
-          </div>
-        </div>
-      </main>
-
-      <aside class="aside panel">
         <div class="section-title">提交</div>
         <div class="commit-box">
           <textarea placeholder="填写提交备注，例如：更新需求文档与原型"></textarea>
-          <div class="toolbar" style="margin-top: 10px;">
-            <button class="btn primary">提交变更</button>
-            <button class="btn">仅提交选中</button>
-          </div>
+          <div class="helper-text" style="margin-top: 10px;">使用左侧“提交变更”图标执行提交</div>
         </div>
 
-        <div class="section-title">日志预览</div>
-        <div class="log-item">
-          <div class="title">r1382  |  2026-02-24  |  wendy</div>
-          <div class="desc">更新原型与需求文档</div>
-        </div>
-        <div class="log-item">
-          <div class="title">r1381  |  2026-02-22  |  yang</div>
-          <div class="desc">新增冲突提示文案</div>
-        </div>
-        <div class="log-item">
-          <div class="title">r1380  |  2026-02-20  |  lin</div>
-          <div class="desc">初始化插件结构</div>
-        </div>
+        <div class="section-title">变动文件（文件树）</div>
+        <ul class="file-tree">
+          <li class="tree-folder">
+            <details open>
+              <summary>
+                <div class="tree-node folder">
+                  <div class="tree-label">notes/meeting</div>
+                </div>
+              </summary>
+              <ul class="tree-children">
+                <li>
+                  <div class="tree-node file">
+                    <div class="tree-label">2026-02-24.md</div>
+                    <span class="tag added">新增</span>
+                  </div>
+                </li>
+              </ul>
+            </details>
+          </li>
+          <li class="tree-folder">
+            <details open>
+              <summary>
+                <div class="tree-node folder">
+                  <div class="tree-label">notes/specs</div>
+                </div>
+              </summary>
+              <ul class="tree-children">
+                <li>
+                  <div class="tree-node file">
+                    <div class="tree-label">old-plan.md</div>
+                    <span class="tag deleted">删除</span>
+                  </div>
+                </li>
+              </ul>
+            </details>
+          </li>
+          <li class="tree-folder">
+            <details open>
+              <summary>
+                <div class="tree-node folder">
+                  <div class="tree-label">notes/research</div>
+                </div>
+              </summary>
+              <ul class="tree-children">
+                <li>
+                  <div class="tree-node file">
+                    <div class="tree-label">merge-conflict.md</div>
+                    <span class="tag conflict">冲突</span>
+                  </div>
+                </li>
+              </ul>
+            </details>
+          </li>
+          <li class="tree-folder">
+            <details open>
+              <summary>
+                <div class="tree-node folder">
+                  <div class="tree-label">notes/assets</div>
+                </div>
+              </summary>
+              <ul class="tree-children">
+                <li>
+                  <div class="tree-node file">
+                    <div class="tree-label">draft.png</div>
+                    <span class="tag untracked">未跟踪</span>
+                  </div>
+                </li>
+              </ul>
+            </details>
+          </li>
+          <li>
+            <div class="tree-node file">
+              <div class="tree-label">roadmap.md</div>
+              <span class="tag modified">修改</span>
+            </div>
+          </li>
+        </ul>
+      </main>
 
+      <aside class="aside panel">
         <div class="section-title">冲突提示</div>
         <div class="repo-meta">
           <span>1) 打开冲突文件，手动合并内容。</span>
