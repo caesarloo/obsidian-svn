@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Obsidian SVN 插件原型</title>
+    <style>
+      :root {
+        --bg: #0e1a1f;
+        --bg-2: #13252d;
+        --accent: #f6c453;
+        --accent-2: #6bd0c2;
+        --text: #f5f7f9;
+        --muted: #b7c2c7;
+        --card: #172a33;
+        --danger: #ff7a7a;
+        --ok: #7fe28b;
+        --warn: #f2a55c;
+        --shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans SC", "Source Han Sans SC", sans-serif;
+        color: var(--text);
+        background: radial-gradient(1200px 700px at 20% -10%, #1f3a46, transparent 60%),
+          radial-gradient(900px 500px at 110% 10%, #1a4c49, transparent 50%),
+          linear-gradient(160deg, var(--bg) 0%, var(--bg-2) 100%);
+        min-height: 100vh;
+      }
+
+      .app {
+        display: grid;
+        grid-template-columns: 280px 1fr 360px;
+        gap: 18px;
+        padding: 28px;
+      }
+
+      .brand {
+        font-family: "Bebas Neue", "Futura", "PingFang SC", sans-serif;
+        letter-spacing: 1px;
+        font-size: 28px;
+      }
+
+      .panel {
+        background: var(--card);
+        border-radius: 14px;
+        box-shadow: var(--shadow);
+        padding: 18px;
+      }
+
+      .sidebar .section-title,
+      .content .section-title,
+      .aside .section-title {
+        font-size: 13px;
+        text-transform: uppercase;
+        color: var(--muted);
+        letter-spacing: 1.5px;
+        margin: 12px 0 8px;
+      }
+
+      .sidebar {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+
+      .repo-card {
+        background: linear-gradient(140deg, #1c313a, #1b3c38);
+        border-radius: 12px;
+        padding: 14px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+      }
+
+      .repo-meta {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        font-size: 13px;
+        color: var(--muted);
+      }
+
+      .actions {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+      }
+
+      .btn {
+        background: #213945;
+        color: var(--text);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 10px;
+        padding: 10px 12px;
+        font-size: 12px;
+        cursor: pointer;
+      }
+
+      .btn.primary {
+        background: linear-gradient(135deg, var(--accent), #ffdd8b);
+        color: #1b1b1b;
+        font-weight: 600;
+      }
+
+      .btn.ghost {
+        background: transparent;
+        border: 1px dashed rgba(255, 255, 255, 0.22);
+      }
+
+      .content {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+
+      .toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: center;
+      }
+
+      .chip {
+        padding: 6px 10px;
+        border-radius: 20px;
+        background: rgba(255, 255, 255, 0.08);
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      .status-list {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .status-item {
+        background: #1b323c;
+        border-radius: 12px;
+        padding: 12px;
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+      }
+
+      .status-item .path {
+        font-size: 13px;
+        color: var(--text);
+      }
+
+      .status-item .meta {
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      .tag {
+        padding: 4px 8px;
+        border-radius: 999px;
+        font-size: 11px;
+        font-weight: 600;
+      }
+
+      .tag.added { background: rgba(127, 226, 139, 0.2); color: var(--ok); }
+      .tag.modified { background: rgba(246, 196, 83, 0.2); color: var(--accent); }
+      .tag.deleted { background: rgba(255, 122, 122, 0.2); color: var(--danger); }
+      .tag.conflict { background: rgba(242, 165, 92, 0.2); color: var(--warn); }
+      .tag.untracked { background: rgba(107, 208, 194, 0.2); color: var(--accent-2); }
+
+      .aside {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+
+      .commit-box textarea {
+        width: 100%;
+        min-height: 120px;
+        background: #12232b;
+        color: var(--text);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 10px;
+        padding: 10px;
+        resize: vertical;
+      }
+
+      .log-item {
+        border-left: 3px solid var(--accent-2);
+        padding-left: 10px;
+        margin-bottom: 12px;
+      }
+
+      .log-item .title {
+        font-size: 13px;
+        font-weight: 600;
+      }
+
+      .log-item .desc {
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      .footer-note {
+        font-size: 12px;
+        color: var(--muted);
+        text-align: center;
+        padding: 14px 0 0;
+      }
+
+      @media (max-width: 1100px) {
+        .app {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @keyframes fadeUp {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+
+      .panel {
+        animation: fadeUp 0.6s ease both;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <aside class="sidebar panel">
+        <div class="brand">OBSIDIAN SVN</div>
+        <div class="section-title">仓库</div>
+        <div class="repo-card">
+          <div>当前仓库：笔记库-SVN</div>
+          <div class="repo-meta">
+            <span>URL: https://svn.example.com/notes</span>
+            <span>路径: C:/Vaults/Notes</span>
+            <span>状态: 已绑定</span>
+          </div>
+        </div>
+        <div class="section-title">快速操作</div>
+        <div class="actions">
+          <button class="btn primary">更新</button>
+          <button class="btn">提交</button>
+          <button class="btn">刷新</button>
+          <button class="btn">检出</button>
+          <button class="btn">日志</button>
+          <button class="btn ghost">设置</button>
+        </div>
+        <div class="section-title">过滤</div>
+        <div class="toolbar">
+          <span class="chip">全部</span>
+          <span class="chip">已变更</span>
+          <span class="chip">冲突</span>
+          <span class="chip">未跟踪</span>
+        </div>
+      </aside>
+
+      <main class="content panel">
+        <div class="section-title">工作副本状态</div>
+        <div class="status-list">
+          <div class="status-item">
+            <div>
+              <div class="path">notes/roadmap.md</div>
+              <div class="meta">修改于 2 分钟前</div>
+            </div>
+            <span class="tag modified">修改</span>
+          </div>
+          <div class="status-item">
+            <div>
+              <div class="path">notes/meeting/2026-02-24.md</div>
+              <div class="meta">新文件</div>
+            </div>
+            <span class="tag added">新增</span>
+          </div>
+          <div class="status-item">
+            <div>
+              <div class="path">notes/specs/old-plan.md</div>
+              <div class="meta">待删除</div>
+            </div>
+            <span class="tag deleted">删除</span>
+          </div>
+          <div class="status-item">
+            <div>
+              <div class="path">notes/research/merge-conflict.md</div>
+              <div class="meta">需要手动处理冲突</div>
+            </div>
+            <span class="tag conflict">冲突</span>
+          </div>
+          <div class="status-item">
+            <div>
+              <div class="path">notes/assets/draft.png</div>
+              <div class="meta">未跟踪文件</div>
+            </div>
+            <span class="tag untracked">未跟踪</span>
+          </div>
+        </div>
+      </main>
+
+      <aside class="aside panel">
+        <div class="section-title">提交</div>
+        <div class="commit-box">
+          <textarea placeholder="填写提交备注，例如：更新需求文档与原型"></textarea>
+          <div class="toolbar" style="margin-top: 10px;">
+            <button class="btn primary">提交变更</button>
+            <button class="btn">仅提交选中</button>
+          </div>
+        </div>
+
+        <div class="section-title">日志预览</div>
+        <div class="log-item">
+          <div class="title">r1382  |  2026-02-24  |  wendy</div>
+          <div class="desc">更新原型与需求文档</div>
+        </div>
+        <div class="log-item">
+          <div class="title">r1381  |  2026-02-22  |  yang</div>
+          <div class="desc">新增冲突提示文案</div>
+        </div>
+        <div class="log-item">
+          <div class="title">r1380  |  2026-02-20  |  lin</div>
+          <div class="desc">初始化插件结构</div>
+        </div>
+
+        <div class="section-title">冲突提示</div>
+        <div class="repo-meta">
+          <span>1) 打开冲突文件，手动合并内容。</span>
+          <span>2) 保存后选择“标记已解决”。</span>
+          <span>3) 重新提交。</span>
+        </div>
+      </aside>
+    </div>
+    <div class="footer-note">原型仅用于交互与布局示意</div>
+  </body>
+</html>
