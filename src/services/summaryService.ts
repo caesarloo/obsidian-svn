@@ -23,11 +23,13 @@ export async function generateSummaryWithFallback(entries: SvnStatusEntry[]): Pr
     return acc;
   }, {});
 
-  const parts = Object.entries(grouped).map(([status, paths]) => {
-    const preview = paths.slice(0, 4).join("，");
-    const suffix = paths.length > 4 ? ` 等 ${paths.length} 项` : "";
-    return `${status}：${preview}${suffix}`;
-  });
+  // 生成变更说明
+  let summary = "更新了项目文件";
+  
+  // 生成文件清单
+  const fileList = Object.entries(grouped).map(([status, paths]) => {
+    return `## ${status}文件\n${paths.map(path => `- ${path}`).join("\n")}`;
+  }).join("\n\n");
 
-  return `SVN 变更摘要：${parts.join("；")}`;
+  return `${summary}\n\n${fileList}`;
 }

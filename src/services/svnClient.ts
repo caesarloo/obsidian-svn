@@ -3,6 +3,7 @@ import { constants } from "node:fs";
 import { access } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
+import iconv from "iconv-lite";
 import type { SvnCredentials, SvnStatusEntry, SvnStatusKind } from "../types";
 
 const execFileAsync = promisify(execFile);
@@ -200,10 +201,14 @@ export class SvnClient {
       return null;
     }
 
+    console.debug("[Obsidian SVN] 解析状态行", { line, code, pathPart, pathPartLength: pathPart.length });
+
     const normalizedPath = pathPart.replace(/\\/g, "/");
     const splitIndex = normalizedPath.lastIndexOf("/");
     const fileName = splitIndex >= 0 ? normalizedPath.slice(splitIndex + 1) : normalizedPath;
     const folderPath = splitIndex >= 0 ? normalizedPath.slice(0, splitIndex) : "";
+
+    console.debug("[Obsidian SVN] 解析结果", { normalizedPath, fileName, folderPath });
 
     const status = this.mapStatus(code);
     if (!status) {
@@ -258,14 +263,27 @@ export class SvnClient {
         const { stdout } = await execFileAsync(binary, finalArgs, {
           cwd: this.workingCopyPath,
           windowsHide: true,
-          maxBuffer: 10 * 1024 * 1024
+          maxBuffer: 10 * 1024 * 1024,
+          encoding: 'buffer' // 以 Buffer 形式返回输出
         });
+        
+        // 尝试用不同的编码解码输出
+        let decodedOutput: string;
+        try {
+          // 首先尝试 GBK 编码（Windows 中文系统的默认编码）
+          decodedOutput = iconv.decode(stdout, 'gbk');
+        } catch {
+          // 如果失败，尝试 UTF-8
+          decodedOutput = iconv.decode(stdout, 'utf8');
+        }
+        
         console.debug("[Obsidian SVN] 命令执行成功", {
           binary,
           args: safeArgs,
-          stdoutLength: (stdout ?? "").length
+          stdoutLength: decodedOutput.length,
+          stdoutSample: decodedOutput.substring(0, 500) // 显示前500个字符的输出样本
         });
-        return stdout ?? "";
+        return decodedOutput;
       } catch (error) {
         const err = error as Error & { stderr?: string; stdout?: string; code?: string | number };
 
