@@ -31,7 +31,8 @@ const DEFAULT_SETTINGS: ObsidianSvnSettings = {
   username: "",
   persistPassword: false,
   savedPassword: "",
-  enableDebugLog: false
+  enableDebugLog: false,
+  debugLogMigratedToDefaultOff: false
 };
 
 export default class ObsidianSvnPlugin extends Plugin {
@@ -113,11 +114,21 @@ export default class ObsidianSvnPlugin extends Plugin {
   async loadSettings(): Promise<void> {
     const loaded = (await this.loadData()) as Partial<ObsidianSvnSettings> | null;
     const basePath = (this.app.vault.adapter as { basePath?: string }).basePath ?? "";
+
+    const hasMigrationFlag = loaded?.debugLogMigratedToDefaultOff === true;
+    const enableDebugLog = hasMigrationFlag ? loaded?.enableDebugLog === true : false;
+
     this.settings = {
       ...DEFAULT_SETTINGS,
       workingCopyPath: basePath,
-      ...loaded
+      ...loaded,
+      enableDebugLog,
+      debugLogMigratedToDefaultOff: true
     };
+
+    if (!hasMigrationFlag) {
+      await this.saveSettings();
+    }
   }
 
   async saveSettings(): Promise<void> {
