@@ -407,7 +407,7 @@ class SvnPanelView extends ItemView {
         items.forEach((item) => this.toggleStage(item.path, shouldStage));
         this.renderStatusTree();
       });
-      this.createMiniIcon(folderActions, "undo-2", "还原", () => void this.revertFolder(folder, items));
+      this.createMiniIcon(folderActions, "refresh-ccw", "还原", () => void this.revertFolder(folder, items));
 
       if (!this.collapsedFolders.has(folder)) {
         const children = folderRow.createDiv({ cls: "svn-tree-children" });
@@ -437,7 +437,7 @@ class SvnPanelView extends ItemView {
       this.toggleStage(entry.path, !isStaged);
       this.renderStatusTree();
     });
-    this.createMiniIcon(actions, "undo-2", "还原", () => void this.revertFile(entry.path));
+    this.createMiniIcon(actions, "refresh-ccw", "还原", () => void this.revertFile(entry.path));
   }
 
   private renderConflicts(): void {
@@ -551,7 +551,16 @@ class SvnPanelView extends ItemView {
 
   private createMiniIcon(container: HTMLElement, icon: string, title: string, onClick: () => void): void {
     const button = container.createEl("button", { cls: "svn-mini-btn", attr: { title } });
-    setIcon(button, icon);
+    // 使用文本代替图标，确保显示正常
+    if (icon === "plus") {
+      button.setText("+");
+    } else if (icon === "minus") {
+      button.setText("-");
+    } else if (icon === "refresh-ccw") {
+      button.setText("↺");
+    } else {
+      setIcon(button, icon);
+    }
     button.addEventListener("click", onClick);
   }
 }
