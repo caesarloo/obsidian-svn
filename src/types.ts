@@ -20,11 +20,26 @@ export interface ObsidianSvnSettings {
   savedPassword: string;
   enableDebugLog: boolean;
   debugLogMigratedToDefaultOff: boolean;
+  autoRefreshInterval: number; // 自动刷新间隔（秒）
+  autoOpenPanel: boolean; // 启动时自动打开 SVN 面板
+  autoGenerateSummary: boolean; // 提交时自动生成摘要
+  diffTheme: 'light' | 'dark'; // 差异显示主题
+  defaultExpandFolders: boolean; // 文件树默认展开状态
 }
 
 export interface SvnCredentials {
   username: string;
   password: string;
+}
+
+// 插件类型定义
+export interface ObsidianSvnPlugin {
+  settings: ObsidianSvnSettings;
+  getSvnClient(): any;
+  debugLog(message: string, details?: unknown): void;
+  setSessionPassword(password: string): void;
+  getSessionPassword(): string;
+  saveSettings(): Promise<void>;
 }
 
 // 文件差异相关类型

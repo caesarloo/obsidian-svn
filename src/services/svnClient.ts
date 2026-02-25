@@ -50,6 +50,7 @@ export class SvnClient {
   }
 
   async diff(path: string): Promise<SvnDiff> {
+    this.validateInput(path, `文件路径 "${path}"`);
     const output = await this.run(["diff", path]);
     return this.parseDiffOutput(path, output);
   }
@@ -140,6 +141,7 @@ export class SvnClient {
     if (!paths.length) {
       return "";
     }
+    this.validatePaths(paths);
     return await this.run(["add", "--force", ...paths]);
   }
 
@@ -147,6 +149,7 @@ export class SvnClient {
     if (!paths.length) {
       return "";
     }
+    this.validatePaths(paths);
     return await this.run(["delete", ...paths]);
   }
 
@@ -154,6 +157,7 @@ export class SvnClient {
     if (!paths.length) {
       return "";
     }
+    this.validatePaths(paths);
     const args = ["revert"];
     if (recursive) {
       args.push("-R");
@@ -166,6 +170,7 @@ export class SvnClient {
     if (!paths.length) {
       return "";
     }
+    this.validatePaths(paths);
     return await this.run(["resolve", "--accept", "working", ...paths]);
   }
 
@@ -176,6 +181,8 @@ export class SvnClient {
     if (!message.trim()) {
       throw new Error("提交备注不能为空。");
     }
+    this.validatePaths(paths);
+    this.validateInput(message, "提交备注");
     return await this.run(["commit", "-m", message, ...paths]);
   }
 
@@ -334,6 +341,31 @@ export class SvnClient {
         return "missing";
       default:
         return null;
+    }
+  }
+
+  private validateInput(input: string, context: string): void {
+    if (!input) {
+      return;
+    }
+    
+    // 检查是否包含危险字符或命令注入尝试
+    const dangerousPatterns = [
+      /[;&|`$<>\n\r]/g, //  shell 元字符
+      /\.\.\//g, // 路径遍历
+      /\/\*|\*\//g, // 注释
+    ];
+    
+    for (const pattern of dangerousPatterns) {
+      if (pattern.test(input)) {
+        throw new Error(`输入验证失败：${context} 包含危险字符`);
+      }
+    }
+  }
+
+  private validatePaths(paths: string[]): void {
+    for (const path of paths) {
+      this.validateInput(path, `文件路径 "${path}"`);
     }
   }
 
