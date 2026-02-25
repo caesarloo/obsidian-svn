@@ -3,8 +3,8 @@
 }
 
 .svn-app-grid {
-  display: grid;
-  grid-template-columns: 220px 1fr 280px;
+  display: flex;
+  flex-direction: column;
   gap: 12px;
 }
 
@@ -179,6 +179,16 @@
   width: 100%;
 }
 
+.svn-field-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.svn-field-row input {
+  flex: 1;
+}
+
 .svn-modal-actions {
   display: flex;
   justify-content: flex-end;
@@ -191,6 +201,6 @@
 
 @media (max-width: 1100px) {
   .svn-app-grid {
-    grid-template-columns: 1fr;
+    flex-direction: column;
   }
 }

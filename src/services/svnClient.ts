@@ -1,4 +1,7 @@
 import { execFile } from "node:child_process";
+import { constants } from "node:fs";
+import { access } from "node:fs/promises";
+import path from "node:path";
 import { promisify } from "node:util";
 import type { SvnCredentials, SvnStatusEntry, SvnStatusKind } from "../types";
 
@@ -75,6 +78,118 @@ export class SvnClient {
     return await this.run(["commit", "-m", message, ...paths]);
   }
 
+  private maskSensitiveArgs(args: string[]): string[] {
+    const safeArgs = [...args];
+    const passwordIndex = safeArgs.indexOf("--password");
+    if (passwordIndex >= 0 && passwordIndex + 1 < safeArgs.length) {
+      safeArgs[passwordIndex + 1] = "******";
+    }
+    return safeArgs;
+  }
+
+  private getBinaryCandidates(): string[] {
+    const configured = this.svnBinaryPath.trim();
+    const candidates: string[] = [];
+
+    if (configured) {
+      candidates.push(configured);
+    }
+
+    if (!configured || configured.toLowerCase() !== "svn") {
+      candidates.push("svn");
+    }
+
+    if (process.platform === "win32") {
+      candidates.push(
+        "C:/Program Files/TortoiseSVN/bin/svn.exe",
+        "C:/Program Files/SlikSvn/bin/svn.exe",
+        "C:/Program Files/VisualSVN Server/bin/svn.exe",
+        "C:/Program Files (x86)/SlikSvn/bin/svn.exe",
+        "C:/Program Files (x86)/CollabNet Subversion Client/svn.exe"
+      );
+    }
+
+    return [...new Set(candidates)];
+  }
+
+  private async discoverFromSystemPath(): Promise<string[]> {
+    try {
+      if (process.platform === "win32") {
+        const { stdout } = await execFileAsync("where", ["svn"], {
+          windowsHide: true,
+          maxBuffer: 1024 * 1024
+        });
+        return (stdout ?? "")
+          .split(/\r?\n/)
+          .map((line) => line.trim())
+          .filter(Boolean);
+      }
+
+      const { stdout } = await execFileAsync("which", ["svn"], {
+        windowsHide: true,
+        maxBuffer: 1024 * 1024
+      });
+      return (stdout ?? "")
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(Boolean);
+    } catch {
+      return [];
+    }
+  }
+
+  private isCommandName(binary: string): boolean {
+    return !binary.includes("/") && !binary.includes("\\") && !binary.includes(":");
+  }
+
+  private async existsExecutable(binary: string): Promise<boolean> {
+    if (this.isCommandName(binary)) {
+      return true;
+    }
+
+    const normalized = binary.replace(/\\/g, "/");
+    if (!path.isAbsolute(normalized)) {
+      return false;
+    }
+
+    try {
+      await access(normalized, constants.F_OK);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  private async resolveBinaryCandidates(): Promise<string[]> {
+    const baseCandidates = this.getBinaryCandidates();
+    const discovered = await this.discoverFromSystemPath();
+    const merged = [...baseCandidates, ...discovered];
+
+    const deduped = merged.filter((item, index) => {
+      const normalized = process.platform === "win32" ? item.toLowerCase() : item;
+      return merged.findIndex((other) => (process.platform === "win32" ? other.toLowerCase() : other) === normalized) === index;
+    });
+
+    const available: string[] = [];
+    for (const candidate of deduped) {
+      if (await this.existsExecutable(candidate)) {
+        available.push(candidate);
+      }
+    }
+
+    return available;
+  }
+
+  private buildBinaryNotFoundError(candidates: string[]): Error {
+    const message = [
+      "未找到 svn 可执行文件。",
+      `已尝试：${candidates.join(" | ")}`,
+      "请在插件“设置”中将“SVN 可执行文件”配置为 svn.exe 的绝对路径（例如 C:/Program Files/TortoiseSVN/bin/svn.exe）。",
+      "若安装 TortoiseSVN，请在安装时勾选“Command line client tools”组件。"
+    ].join(" ");
+    return new Error(message);
+  }
+
   private parseStatusLine(line: string): SvnStatusEntry | null {
     if (line.length < 9) {
       return null;
@@ -129,17 +244,59 @@ export class SvnClient {
       finalArgs.push("--trust-server-cert-failures", "unknown-ca,cn-mismatch,expired,not-yet-valid,other");
     }
 
-    try {
-      const { stdout } = await execFileAsync(this.svnBinaryPath || "svn", finalArgs, {
-        cwd: this.workingCopyPath,
-        windowsHide: true,
-        maxBuffer: 10 * 1024 * 1024
+    const safeArgs = this.maskSensitiveArgs(finalArgs);
+    const binaries = await this.resolveBinaryCandidates();
+
+    for (const binary of binaries) {
+      console.debug("[Obsidian SVN] 执行命令", {
+        binary,
+        args: safeArgs,
+        cwd: this.workingCopyPath
       });
-      return stdout ?? "";
-    } catch (error) {
-      const err = error as Error & { stderr?: string; stdout?: string; code?: string | number };
-      const message = err.stderr?.trim() || err.message || "SVN 命令执行失败";
-      throw new Error(message);
+
+      try {
+        const { stdout } = await execFileAsync(binary, finalArgs, {
+          cwd: this.workingCopyPath,
+          windowsHide: true,
+          maxBuffer: 10 * 1024 * 1024
+        });
+        console.debug("[Obsidian SVN] 命令执行成功", {
+          binary,
+          args: safeArgs,
+          stdoutLength: (stdout ?? "").length
+        });
+        return stdout ?? "";
+      } catch (error) {
+        const err = error as Error & { stderr?: string; stdout?: string; code?: string | number };
+
+        if (err.code === "ENOENT") {
+          console.warn("[Obsidian SVN] svn 可执行文件未找到，尝试下一个候选", {
+            binary,
+            args: safeArgs,
+            message: err.message
+          });
+          continue;
+        }
+
+        console.error("[Obsidian SVN] 命令执行失败", {
+          binary,
+          args: safeArgs,
+          code: err.code,
+          stderr: err.stderr,
+          stdout: err.stdout,
+          message: err.message,
+          stack: err.stack
+        });
+        const message = err.stderr?.trim() || err.message || "SVN 命令执行失败";
+        throw new Error(message);
+      }
     }
+
+    console.error("[Obsidian SVN] 所有 svn 候选路径均不可用", {
+      binaries,
+      args: safeArgs,
+      cwd: this.workingCopyPath
+    });
+    throw this.buildBinaryNotFoundError(binaries);
   }
 }

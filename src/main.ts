@@ -233,6 +233,7 @@ class SvnPanelView extends ItemView {
 
   async refreshStatus(showNotice: boolean): Promise<void> {
     try {
+      console.debug("[Obsidian SVN] 开始刷新状态", { showNotice });
       const client = this.plugin.getSvnClient();
       await client.ensureAvailable();
       const entries = await client.status();
@@ -244,21 +245,39 @@ class SvnPanelView extends ItemView {
       });
       this.renderStatusTree();
       this.renderConflicts();
+      console.debug("[Obsidian SVN] 刷新状态成功", { entryCount: entries.length });
       if (showNotice) {
         new Notice(`状态已刷新，共 ${entries.length} 项变更`);
       }
     } catch (error) {
+      const err = error as Error;
+      console.error("[Obsidian SVN] 刷新状态失败", {
+        message: err.message,
+        stack: err.stack,
+        error
+      });
       new Notice(`刷新失败：${(error as Error).message}`);
     }
   }
 
   async updateWorkingCopy(): Promise<void> {
     try {
+      console.debug("[Obsidian SVN] 开始更新工作副本");
       const client = this.plugin.getSvnClient();
-      await client.update();
+      const output = await client.update();
+      console.debug("[Obsidian SVN] 更新工作副本成功", {
+        outputLength: output.length,
+        outputPreview: output.slice(0, 500)
+      });
       new Notice("更新完成");
       await this.refreshStatus(false);
     } catch (error) {
+      const err = error as Error;
+      console.error("[Obsidian SVN] 更新工作副本失败", {
+        message: err.message,
+        stack: err.stack,
+        error
+      });
       new Notice(`更新失败：${(error as Error).message}`);
     }
   }
@@ -333,7 +352,7 @@ class SvnPanelView extends ItemView {
     this.createIconButton(actionGrid, "arrow-down-to-line", "更新", () => void this.updateWorkingCopy());
     this.createIconButton(actionGrid, "refresh-cw", "刷新", () => void this.refreshStatus(true));
     this.createIconButton(actionGrid, "sparkles", "生成摘要", () => void this.generateSummary());
-    this.createIconButton(actionGrid, "upload", "提交变更", () => void this.submitCommit(), true);
+    this.createIconButton(actionGrid, "upload", "提交变更", () => void this.submitCommit());
     this.createIconButton(actionGrid, "settings", "设置", () => new RepositoryConfigModal(this.app, this.plugin).open());
 
     const contentPanel = appGrid.createDiv({ cls: "svn-panel" });
@@ -549,8 +568,7 @@ class RepositoryConfigModal extends Modal {
 
     contentEl.createEl("h3", { text: "仓库配置" });
 
-    const workingInput = this.createField(contentEl, "工作副本路径", this.plugin.settings.workingCopyPath);
-    const binaryInput = this.createField(contentEl, "SVN 可执行文件", this.plugin.settings.svnBinaryPath);
+    const binaryInput = this.createBinaryField(contentEl, this.plugin.settings.svnBinaryPath);
     const userInput = this.createField(contentEl, "用户名", this.plugin.settings.username);
 
     const passwordInput = this.createField(contentEl, "密码", this.plugin.getSessionPassword() || this.plugin.settings.savedPassword, "password");
@@ -571,8 +589,13 @@ class RepositoryConfigModal extends Modal {
 
     const saveBtn = actionRow.createEl("button", { cls: "svn-btn is-primary", text: "保存" });
     saveBtn.addEventListener("click", async () => {
-      this.plugin.settings.workingCopyPath = workingInput.value.trim();
-      this.plugin.settings.svnBinaryPath = binaryInput.value.trim() || "svn";
+      const binaryValue = binaryInput.value.trim() || "svn";
+      if (/tortoiseproc\.exe$/i.test(binaryValue.replace(/\\/g, "/"))) {
+        new Notice("TortoiseProc.exe 不是 svn 命令行工具，请选择 svn.exe。若安装 TortoiseSVN，请勾选“Command line client tools”组件。");
+        return;
+      }
+
+      this.plugin.settings.svnBinaryPath = binaryValue;
       this.plugin.settings.username = userInput.value.trim();
 
       const password = passwordInput.value;
@@ -600,6 +623,100 @@ class RepositoryConfigModal extends Modal {
       }
     });
   }
+
+  private createBinaryField(parent: HTMLElement, value: string): HTMLInputElement {
+    const wrapper = parent.createDiv({ cls: "svn-field" });
+    wrapper.createEl("label", { text: "SVN 可执行文件" });
+
+    const row = wrapper.createDiv({ cls: "svn-field-row" });
+    const input = row.createEl("input", {
+      attr: {
+        type: "text",
+        value,
+        placeholder: "留空或填写 svn；如失败请填写 svn.exe 绝对路径"
+      }
+    });
+
+    const picker = row.createEl("input", {
+      attr: {
+        type: "file",
+        accept: ".exe"
+      }
+    });
+    picker.style.display = "none";
+
+    const pickBtn = row.createEl("button", { cls: "svn-btn", text: "选择文件" });
+    pickBtn.addEventListener("click", async () => {
+      const selected = await this.pickExecutablePathWithElectron();
+      if (selected) {
+        input.value = selected;
+        return;
+      }
+      picker.click();
+    });
+
+    picker.addEventListener("change", () => {
+      const file = picker.files?.[0] as File & { path?: string };
+      if (file?.path) {
+        input.value = file.path;
+        return;
+      }
+
+      if (picker.value) {
+        input.value = picker.value;
+        new Notice("当前环境无法读取真实文件路径，请手动粘贴 svn.exe 的绝对路径。", 5000);
+      }
+    });
+
+    wrapper.createDiv({
+      cls: "svn-helper-text",
+      text: "示例：C:/Program Files/TortoiseSVN/bin/svn.exe。若安装 TortoiseSVN，请勾选“Command line client tools”组件；若 PATH 已配置可直接填 svn。"
+    });
+
+    return input;
+  }
+
+  private async pickExecutablePathWithElectron(): Promise<string | null> {
+    try {
+      const electron = (window as Window & { require?: (id: string) => unknown }).require?.("electron") as {
+        dialog?: {
+          showOpenDialog: (options: {
+            title?: string;
+            properties?: string[];
+            filters?: Array<{ name: string; extensions: string[] }>;
+          }) => Promise<{ canceled: boolean; filePaths: string[] }>;
+        };
+        remote?: {
+          dialog?: {
+            showOpenDialog: (options: {
+              title?: string;
+              properties?: string[];
+              filters?: Array<{ name: string; extensions: string[] }>;
+            }) => Promise<{ canceled: boolean; filePaths: string[] }>;
+          };
+        };
+      };
+
+      const dialog = electron?.dialog ?? electron?.remote?.dialog;
+      if (!dialog?.showOpenDialog) {
+        return null;
+      }
+
+      const result = await dialog.showOpenDialog({
+        title: "选择 svn.exe",
+        properties: ["openFile"],
+        filters: [{ name: "Executable", extensions: ["exe"] }]
+      });
+
+      if (result.canceled || !result.filePaths.length) {
+        return null;
+      }
+
+      return result.filePaths[0];
+    } catch {
+      return null;
+    }
+  }
 }
 
 class ObsidianSvnSettingTab extends PluginSettingTab {
@@ -615,7 +732,7 @@ class ObsidianSvnSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("打开仓库配置弹窗")
-      .setDesc("配置工作副本路径、SVN 可执行文件与凭据")
+      .setDesc("配置 SVN 可执行文件与凭据")
       .addButton((button) => {
         button.setButtonText("打开");
         button.onClick(() => {
