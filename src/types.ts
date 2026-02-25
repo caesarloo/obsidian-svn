@@ -18,6 +18,7 @@ export interface ObsidianSvnSettings {
   username: string;
   persistPassword: boolean;
   savedPassword: string;
+  enableDebugLog: boolean;
 }
 
 export interface SvnCredentials {

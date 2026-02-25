@@ -1,0 +1,10 @@
+{
+  "id": "obsidian-svn",
+  "name": "Obsidian SVN",
+  "version": "1.0.1",
+  "minAppVersion": "1.0.0",
+  "description": "在 Obsidian 中管理 SVN 工作副本。",
+  "author": "obsidian-svn",
+  "authorUrl": "",
+  "isDesktopOnly": true
+}

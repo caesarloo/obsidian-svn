@@ -12,8 +12,20 @@ export class SvnClient {
   constructor(
     private readonly svnBinaryPath: string,
     private readonly workingCopyPath: string,
-    private readonly credentials?: SvnCredentials
+    private readonly credentials?: SvnCredentials,
+    private readonly enableDebugLog = true
   ) {}
+
+  private debugLog(message: string, details?: unknown): void {
+    if (!this.enableDebugLog) {
+      return;
+    }
+    if (details === undefined) {
+      console.debug(message);
+      return;
+    }
+    console.debug(message, details);
+  }
 
   async ensureAvailable(): Promise<void> {
     await this.run(["--version"]);
@@ -201,14 +213,14 @@ export class SvnClient {
       return null;
     }
 
-    console.debug("[Obsidian SVN] 解析状态行", { line, code, pathPart, pathPartLength: pathPart.length });
+    this.debugLog("[Obsidian SVN] 解析状态行", { line, code, pathPart, pathPartLength: pathPart.length });
 
     const normalizedPath = pathPart.replace(/\\/g, "/");
     const splitIndex = normalizedPath.lastIndexOf("/");
     const fileName = splitIndex >= 0 ? normalizedPath.slice(splitIndex + 1) : normalizedPath;
     const folderPath = splitIndex >= 0 ? normalizedPath.slice(0, splitIndex) : "";
 
-    console.debug("[Obsidian SVN] 解析结果", { normalizedPath, fileName, folderPath });
+    this.debugLog("[Obsidian SVN] 解析结果", { normalizedPath, fileName, folderPath });
 
     const status = this.mapStatus(code);
     if (!status) {
@@ -253,7 +265,7 @@ export class SvnClient {
     const binaries = await this.resolveBinaryCandidates();
 
     for (const binary of binaries) {
-      console.debug("[Obsidian SVN] 执行命令", {
+      this.debugLog("[Obsidian SVN] 执行命令", {
         binary,
         args: safeArgs,
         cwd: this.workingCopyPath
@@ -277,7 +289,7 @@ export class SvnClient {
           decodedOutput = iconv.decode(stdout, 'utf8');
         }
         
-        console.debug("[Obsidian SVN] 命令执行成功", {
+        this.debugLog("[Obsidian SVN] 命令执行成功", {
           binary,
           args: safeArgs,
           stdoutLength: decodedOutput.length,

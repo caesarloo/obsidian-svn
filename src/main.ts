@@ -30,7 +30,8 @@ const DEFAULT_SETTINGS: ObsidianSvnSettings = {
   workingCopyPath: "",
   username: "",
   persistPassword: false,
-  savedPassword: ""
+  savedPassword: "",
+  enableDebugLog: true
 };
 
 export default class ObsidianSvnPlugin extends Plugin {
@@ -125,7 +126,18 @@ export default class ObsidianSvnPlugin extends Plugin {
 
   getSvnClient(): SvnClient {
     const credentials = this.getCredentials();
-    return new SvnClient(this.settings.svnBinaryPath, this.settings.workingCopyPath, credentials);
+    return new SvnClient(this.settings.svnBinaryPath, this.settings.workingCopyPath, credentials, this.settings.enableDebugLog);
+  }
+
+  debugLog(message: string, details?: unknown): void {
+    if (!this.settings.enableDebugLog) {
+      return;
+    }
+    if (details === undefined) {
+      console.debug(message);
+      return;
+    }
+    console.debug(message, details);
   }
 
   setSessionPassword(password: string): void {
@@ -233,7 +245,7 @@ class SvnPanelView extends ItemView {
 
   async refreshStatus(showNotice: boolean): Promise<void> {
     try {
-      console.debug("[Obsidian SVN] 开始刷新状态", { showNotice });
+      this.plugin.debugLog("[Obsidian SVN] 开始刷新状态", { showNotice });
       const client = this.plugin.getSvnClient();
       await client.ensureAvailable();
       const entries = await client.status();
@@ -245,7 +257,7 @@ class SvnPanelView extends ItemView {
       });
       this.renderStatusTree();
       this.renderConflicts();
-      console.debug("[Obsidian SVN] 刷新状态成功", { entryCount: entries.length });
+      this.plugin.debugLog("[Obsidian SVN] 刷新状态成功", { entryCount: entries.length });
       if (showNotice) {
         new Notice(`状态已刷新，共 ${entries.length} 项变更`);
       }
@@ -262,10 +274,10 @@ class SvnPanelView extends ItemView {
 
   async updateWorkingCopy(): Promise<void> {
     try {
-      console.debug("[Obsidian SVN] 开始更新工作副本");
+      this.plugin.debugLog("[Obsidian SVN] 开始更新工作副本");
       const client = this.plugin.getSvnClient();
       const output = await client.update();
-      console.debug("[Obsidian SVN] 更新工作副本成功", {
+      this.plugin.debugLog("[Obsidian SVN] 更新工作副本成功", {
         outputLength: output.length,
         outputPreview: output.slice(0, 500)
       });
@@ -754,6 +766,17 @@ class ObsidianSvnSettingTab extends PluginSettingTab {
       .setDesc("若关闭“持久化保存密码”，插件会仅在当前会话保存密码，不写入配置文件。")
       .addExtraButton((button) => {
         button.setIcon("info");
+      });
+
+    new Setting(containerEl)
+      .setName("调试日志")
+      .setDesc("关闭后将不再输出调试级别日志（console.debug）")
+      .addToggle((toggle) => {
+        toggle.setValue(this.plugin.settings.enableDebugLog);
+        toggle.onChange(async (value) => {
+          this.plugin.settings.enableDebugLog = value;
+          await this.plugin.saveSettings();
+        });
       });
   }
 }
