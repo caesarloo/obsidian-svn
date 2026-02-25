@@ -26,3 +26,33 @@ export interface SvnCredentials {
   username: string;
   password: string;
 }
+
+// 文件差异相关类型
+export interface DiffLine {
+  lineNumber: number;
+  content: string;
+  type: "added" | "deleted" | "unchanged";
+}
+
+export interface SvnDiff {
+  filePath: string;
+  lines: DiffLine[];
+}
+
+// 更新反馈相关类型
+export interface UpdateEntry {
+  path: string;
+  status: "added" | "modified" | "deleted" | "unchanged";
+  size?: number;
+}
+
+export interface UpdateResult {
+  entries: UpdateEntry[];
+  summary: {
+    total: number;
+    added: number;
+    modified: number;
+    deleted: number;
+    totalSize?: number;
+  };
+}

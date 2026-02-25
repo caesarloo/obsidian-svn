@@ -4,7 +4,7 @@ import { access } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 import iconv from "iconv-lite";
-import type { SvnCredentials, SvnStatusEntry, SvnStatusKind } from "../types";
+import type { SvnCredentials, SvnStatusEntry, SvnStatusKind, SvnDiff, UpdateResult, UpdateEntry } from "../types";
 
 const execFileAsync = promisify(execFile);
 
@@ -44,8 +44,96 @@ export class SvnClient {
     return entries;
   }
 
-  async update(): Promise<string> {
-    return await this.run(["update"]);
+  async update(): Promise<UpdateResult> {
+    const output = await this.run(["update"]);
+    return this.parseUpdateOutput(output);
+  }
+
+  async diff(path: string): Promise<SvnDiff> {
+    const output = await this.run(["diff", path]);
+    return this.parseDiffOutput(path, output);
+  }
+
+  private parseUpdateOutput(output: string): UpdateResult {
+    const lines = output.split(/\r?\n/).filter(Boolean);
+    const entries: UpdateEntry[] = [];
+    let summary = {
+      total: 0,
+      added: 0,
+      modified: 0,
+      deleted: 0,
+      totalSize: 0
+    };
+
+    for (const line of lines) {
+      const match = line.match(/^(A|U|D)\s+(.+)$/);
+      if (match) {
+        const [, status, path] = match;
+        let statusType: UpdateEntry['status'] = 'unchanged';
+        
+        switch (status) {
+          case 'A':
+            statusType = 'added';
+            summary.added++;
+            break;
+          case 'U':
+            statusType = 'modified';
+            summary.modified++;
+            break;
+          case 'D':
+            statusType = 'deleted';
+            summary.deleted++;
+            break;
+        }
+
+        entries.push({
+          path: path.replace(/\\/g, "/"),
+          status: statusType
+        });
+      }
+    }
+
+    summary.total = entries.length;
+    return { entries, summary };
+  }
+
+  private parseDiffOutput(filePath: string, output: string): SvnDiff {
+    const lines = output.split(/\r?\n/);
+    const diffLines: DiffLine[] = [];
+    let currentLineNumber = 1;
+
+    for (const line of lines) {
+      if (line.startsWith('---') || line.startsWith('+++') || line.startsWith('@@')) {
+        continue;
+      }
+
+      if (line.startsWith('+')) {
+        diffLines.push({
+          lineNumber: currentLineNumber,
+          content: line.substring(1),
+          type: 'added'
+        });
+        currentLineNumber++;
+      } else if (line.startsWith('-')) {
+        diffLines.push({
+          lineNumber: currentLineNumber,
+          content: line.substring(1),
+          type: 'deleted'
+        });
+      } else if (line.startsWith(' ')) {
+        diffLines.push({
+          lineNumber: currentLineNumber,
+          content: line.substring(1),
+          type: 'unchanged'
+        });
+        currentLineNumber++;
+      }
+    }
+
+    return {
+      filePath,
+      lines: diffLines
+    };
   }
 
   async add(paths: string[]): Promise<string> {

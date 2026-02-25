@@ -12,7 +12,7 @@ import {
 } from "obsidian";
 import { SvnClient } from "./services/svnClient";
 import { generateSummaryWithFallback } from "./services/summaryService";
-import type { GroupedStatus, ObsidianSvnSettings, SvnCredentials, SvnStatusEntry, SvnStatusKind } from "./types";
+import type { GroupedStatus, ObsidianSvnSettings, SvnCredentials, SvnStatusEntry, SvnStatusKind, SvnDiff, UpdateResult } from "./types";
 
 const VIEW_TYPE_SVN_PANEL = "obsidian-svn-panel";
 
@@ -232,10 +232,14 @@ class SvnPanelView extends ItemView {
   private staged = new Set<string>();
   private collapsedFolders = new Set<string>();
   private commitMessage = "";
+  private currentDiff: SvnDiff | null = null;
+  private updateResult: UpdateResult | null = null;
 
   private statusTreeEl: HTMLDivElement | null = null;
   private commitInputEl: HTMLTextAreaElement | null = null;
   private conflictPanelEl: HTMLDivElement | null = null;
+  private diffPanelEl: HTMLDivElement | null = null;
+  private updateFeedbackEl: HTMLDivElement | null = null;
 
   constructor(leaf: WorkspaceLeaf, private readonly plugin: ObsidianSvnPlugin) {
     super(leaf);
@@ -287,12 +291,14 @@ class SvnPanelView extends ItemView {
     try {
       this.plugin.debugLog("[Obsidian SVN] 开始更新工作副本");
       const client = this.plugin.getSvnClient();
-      const output = await client.update();
+      const result = await client.update();
+      this.updateResult = result;
       this.plugin.debugLog("[Obsidian SVN] 更新工作副本成功", {
-        outputLength: output.length,
-        outputPreview: output.slice(0, 500)
+        entryCount: result.entries.length,
+        summary: result.summary
       });
-      new Notice("更新完成");
+      new Notice(`更新完成：共更新 ${result.summary.total} 个文件`);
+      this.renderUpdateFeedback();
       await this.refreshStatus(false);
     } catch (error) {
       const err = error as Error;
@@ -397,6 +403,18 @@ class SvnPanelView extends ItemView {
 
     this.conflictPanelEl = appGrid.createDiv({ cls: "svn-panel svn-conflict-panel" });
     this.renderConflicts();
+
+    // 差异面板
+    this.diffPanelEl = appGrid.createDiv({ cls: "svn-panel svn-diff-panel" });
+    this.diffPanelEl.createDiv({ cls: "svn-section-title", text: "文件差异" });
+    const diffContent = this.diffPanelEl.createDiv({ cls: "svn-diff-content" });
+    diffContent.createDiv({ cls: "svn-helper-text", text: "点击文件右侧的差异按钮查看文件差异" });
+
+    // 更新反馈面板
+    this.updateFeedbackEl = appGrid.createDiv({ cls: "svn-panel svn-update-feedback" });
+    this.updateFeedbackEl.createDiv({ cls: "svn-section-title", text: "更新反馈" });
+    const updateContent = this.updateFeedbackEl.createDiv({ cls: "svn-update-content" });
+    updateContent.createDiv({ cls: "svn-helper-text", text: "更新完成后显示更新的文件列表" });
   }
 
   private renderStatusTree(): void {
@@ -456,6 +474,7 @@ class SvnPanelView extends ItemView {
 
     const actions = row.createDiv({ cls: "svn-tree-actions" });
     const isStaged = this.staged.has(entry.path);
+    this.createMiniIcon(actions, "git-compare", "查看差异", () => void this.showFileDiff(entry.path));
     this.createMiniIcon(actions, isStaged ? "minus" : "plus", isStaged ? "取消暂存" : "暂存", () => {
       this.toggleStage(entry.path, !isStaged);
       this.renderStatusTree();
@@ -564,6 +583,67 @@ class SvnPanelView extends ItemView {
     } catch (error) {
       new Notice(`标记失败：${(error as Error).message}`);
     }
+  }
+
+  private async showFileDiff(path: string): Promise<void> {
+    try {
+      const client = this.plugin.getSvnClient();
+      const diff = await client.diff(path);
+      this.currentDiff = diff;
+      this.renderDiff();
+    } catch (error) {
+      new Notice(`获取差异失败：${(error as Error).message}`);
+    }
+  }
+
+  private renderDiff(): void {
+    if (!this.diffPanelEl || !this.currentDiff) {
+      return;
+    }
+
+    const diffContent = this.diffPanelEl.querySelector(".svn-diff-content");
+    if (!diffContent) {
+      return;
+    }
+
+    diffContent.empty();
+
+    const filePathEl = diffContent.createDiv({ cls: "svn-diff-file-path", text: this.currentDiff.filePath });
+
+    const diffLinesEl = diffContent.createDiv({ cls: "svn-diff-lines" });
+    this.currentDiff.lines.forEach((line) => {
+      const lineEl = diffLinesEl.createDiv({ cls: `svn-diff-line svn-diff-${line.type}` });
+      lineEl.createSpan({ cls: "svn-diff-line-number", text: line.lineNumber.toString() });
+      lineEl.createSpan({ cls: "svn-diff-line-content", text: line.content });
+    });
+
+    if (this.currentDiff.lines.length === 0) {
+      diffContent.createDiv({ cls: "svn-helper-text", text: "无差异" });
+    }
+  }
+
+  private renderUpdateFeedback(): void {
+    if (!this.updateFeedbackEl || !this.updateResult) {
+      return;
+    }
+
+    const updateContent = this.updateFeedbackEl.querySelector(".svn-update-content");
+    if (!updateContent) {
+      return;
+    }
+
+    updateContent.empty();
+
+    const summaryEl = updateContent.createDiv({ cls: "svn-update-summary" });
+    summaryEl.createDiv({ text: `更新完成：共更新 ${this.updateResult.summary.total} 个文件` });
+    summaryEl.createDiv({ text: `新增：${this.updateResult.summary.added}，修改：${this.updateResult.summary.modified}，删除：${this.updateResult.summary.deleted}` });
+
+    const listEl = updateContent.createDiv({ cls: "svn-update-list" });
+    this.updateResult.entries.forEach((entry) => {
+      const entryEl = listEl.createDiv({ cls: "svn-update-entry" });
+      entryEl.createSpan({ text: entry.path });
+      entryEl.createSpan({ cls: `svn-tag svn-tag-${entry.status}`, text: STATUS_LABELS[entry.status as SvnStatusKind] || entry.status });
+    });
   }
 
   private createIconButton(container: HTMLElement, icon: string, title: string, onClick: () => void, primary = false): void {
