@@ -260,11 +260,133 @@
         cursor: pointer;
       }
 
+      .mini-btn:hover {
+        background: rgba(255, 255, 255, 0.1);
+      }
+
       .mini-btn svg {
         width: 14px;
         height: 14px;
         stroke: currentColor;
         color: var(--text);
+      }
+
+      .diff-panel {
+        background: var(--card);
+        border-radius: 14px;
+        box-shadow: var(--shadow);
+        padding: 18px;
+        margin-top: 14px;
+      }
+
+      .diff-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+      }
+
+      .diff-title {
+        font-size: 14px;
+        font-weight: 600;
+      }
+
+      .diff-content {
+        background: #12232b;
+        border-radius: 8px;
+        padding: 12px;
+        font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+        font-size: 12px;
+        line-height: 1.5;
+        overflow: auto;
+        max-height: 400px;
+      }
+
+      .diff-line {
+        display: flex;
+        align-items: flex-start;
+      }
+
+      .diff-line-number {
+        width: 40px;
+        color: var(--muted);
+        text-align: right;
+        padding-right: 8px;
+        user-select: none;
+      }
+
+      .diff-line-content {
+        flex: 1;
+      }
+
+      .diff-added {
+        background: rgba(127, 226, 139, 0.1);
+        color: var(--ok);
+      }
+
+      .diff-deleted {
+        background: rgba(255, 122, 122, 0.1);
+        color: var(--danger);
+      }
+
+      .update-feedback {
+        background: var(--card);
+        border-radius: 14px;
+        box-shadow: var(--shadow);
+        padding: 18px;
+        margin-top: 14px;
+      }
+
+      .update-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+      }
+
+      .update-stats {
+        font-size: 12px;
+        color: var(--muted);
+        margin-bottom: 12px;
+      }
+
+      .update-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .update-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 10px;
+        background: #1b323c;
+        border-radius: 8px;
+      }
+
+      .update-item .tag {
+        margin-left: auto;
+      }
+
+      .notification {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: var(--card);
+        border-radius: 10px;
+        box-shadow: var(--shadow);
+        padding: 12px 16px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        animation: slideIn 0.3s ease both;
+        z-index: 1000;
+      }
+
+      @keyframes slideIn {
+        from { opacity: 0; transform: translateX(100%); }
+        to { opacity: 1; transform: translateX(0); }
       }
 
       .tree-hint {
@@ -481,6 +603,15 @@
                     <span class="tag added">新增</span>
                     <span class="tag staged">已暂存</span>
                     <div class="tree-actions">
+                      <button class="mini-btn" title="查看差异">
+                        <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+                          <path d="M14 3v4a1 1 0 0 0 1 1h4" />
+                          <path d="M17 21h-10a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2z" />
+                          <path d="M7 8h10" />
+                          <path d="M7 12h10" />
+                          <path d="M7 16h10" />
+                        </svg>
+                      </button>
                       <button class="mini-btn" title="取消暂存">
                         <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
                           <path d="M5 12h14" />
@@ -525,6 +656,15 @@
                     <div class="tree-label">old-plan.md</div>
                     <span class="tag deleted">删除</span>
                     <div class="tree-actions">
+                      <button class="mini-btn" title="查看差异">
+                        <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+                          <path d="M14 3v4a1 1 0 0 0 1 1h4" />
+                          <path d="M17 21h-10a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2z" />
+                          <path d="M7 8h10" />
+                          <path d="M7 12h10" />
+                          <path d="M7 16h10" />
+                        </svg>
+                      </button>
                       <button class="mini-btn" title="暂存">
                         <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
                           <path d="M12 5v14" />
@@ -570,6 +710,15 @@
                     <div class="tree-label">merge-conflict.md</div>
                     <span class="tag conflict">冲突</span>
                     <div class="tree-actions">
+                      <button class="mini-btn" title="查看差异">
+                        <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+                          <path d="M14 3v4a1 1 0 0 0 1 1h4" />
+                          <path d="M17 21h-10a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2z" />
+                          <path d="M7 8h10" />
+                          <path d="M7 12h10" />
+                          <path d="M7 16h10" />
+                        </svg>
+                      </button>
                       <button class="mini-btn" title="暂存">
                         <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
                           <path d="M12 5v14" />
@@ -615,6 +764,15 @@
                     <div class="tree-label">draft.png</div>
                     <span class="tag untracked">未跟踪</span>
                     <div class="tree-actions">
+                      <button class="mini-btn" title="查看差异">
+                        <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+                          <path d="M14 3v4a1 1 0 0 0 1 1h4" />
+                          <path d="M17 21h-10a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2z" />
+                          <path d="M7 8h10" />
+                          <path d="M7 12h10" />
+                          <path d="M7 16h10" />
+                        </svg>
+                      </button>
                       <button class="mini-btn" title="暂存">
                         <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
                           <path d="M12 5v14" />
@@ -639,21 +797,125 @@
               <span class="tag modified">修改</span>
               <span class="tag staged">已暂存</span>
               <div class="tree-actions">
-                <button class="mini-btn" title="取消暂存">
-                  <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
-                    <path d="M5 12h14" />
-                  </svg>
-                </button>
-                <button class="mini-btn" title="还原">
-                  <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
-                    <path d="M9 14l-4-4 4-4" />
-                    <path d="M5 10h9a5 5 0 1 1 0 10h-2" />
-                  </svg>
-                </button>
-              </div>
+                    <button class="mini-btn" title="查看差异">
+                      <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+                        <path d="M14 3v4a1 1 0 0 0 1 1h4" />
+                        <path d="M17 21h-10a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2z" />
+                        <path d="M7 8h10" />
+                        <path d="M7 12h10" />
+                        <path d="M7 16h10" />
+                      </svg>
+                    </button>
+                    <button class="mini-btn" title="取消暂存">
+                      <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+                        <path d="M5 12h14" />
+                      </svg>
+                    </button>
+                    <button class="mini-btn" title="还原">
+                      <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+                        <path d="M9 14l-4-4 4-4" />
+                        <path d="M5 10h9a5 5 0 1 1 0 10h-2" />
+                      </svg>
+                    </button>
+                  </div>
             </div>
           </li>
         </ul>
+
+        <!-- 文件差异面板 -->
+        <div class="diff-panel">
+          <div class="diff-header">
+            <div class="diff-title">文件差异 - roadmap.md</div>
+            <button class="btn ghost" style="font-size: 10px;">关闭</button>
+          </div>
+          <div class="diff-content">
+            <div class="diff-line">
+              <div class="diff-line-number">1</div>
+              <div class="diff-line-content"># 项目路线图</div>
+            </div>
+            <div class="diff-line">
+              <div class="diff-line-number">2</div>
+              <div class="diff-line-content"></div>
+            </div>
+            <div class="diff-line diff-deleted">
+              <div class="diff-line-number">3</div>
+              <div class="diff-line-content">## 2026 Q1</div>
+            </div>
+            <div class="diff-line diff-deleted">
+              <div class="diff-line-number">4</div>
+              <div class="diff-line-content">- 完成基础功能开发</div>
+            </div>
+            <div class="diff-line diff-deleted">
+              <div class="diff-line-number">5</div>
+              <div class="diff-line-content">- 进行内部测试</div>
+            </div>
+            <div class="diff-line">
+              <div class="diff-line-number">3</div>
+              <div class="diff-line-content"></div>
+            </div>
+            <div class="diff-line diff-added">
+              <div class="diff-line-number">4</div>
+              <div class="diff-line-content">## 2026 Q1</div>
+            </div>
+            <div class="diff-line diff-added">
+              <div class="diff-line-number">5</div>
+              <div class="diff-line-content">- 完成基础功能开发</div>
+            </div>
+            <div class="diff-line diff-added">
+              <div class="diff-line-number">6</div>
+              <div class="diff-line-content">- 进行内部测试</div>
+            </div>
+            <div class="diff-line diff-added">
+              <div class="diff-line-number">7</div>
+              <div class="diff-line-content">- 发布 v1.0 版本</div>
+            </div>
+            <div class="diff-line">
+              <div class="diff-line-number">8</div>
+              <div class="diff-line-content"></div>
+            </div>
+            <div class="diff-line diff-added">
+              <div class="diff-line-number">9</div>
+              <div class="diff-line-content">## 2026 Q2</div>
+            </div>
+            <div class="diff-line diff-added">
+              <div class="diff-line-number">10</div>
+              <div class="diff-line-content">- 添加文件差异查看功能</div>
+            </div>
+            <div class="diff-line diff-added">
+              <div class="diff-line-number">11</div>
+              <div class="diff-line-content">- 添加更新反馈功能</div>
+            </div>
+            <div class="diff-line diff-added">
+              <div class="diff-line-number">12</div>
+              <div class="diff-line-content">- 发布 v1.1 版本</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 更新反馈面板 -->
+        <div class="update-feedback">
+          <div class="update-header">
+            <div class="diff-title">更新反馈</div>
+            <button class="btn ghost" style="font-size: 10px;">关闭</button>
+          </div>
+          <div class="update-stats">
+            更新完成：共更新 3 个文件，总大小 1.2 MB
+          </div>
+          <div class="update-list">
+            <div class="update-item">
+              <div class="tree-label">notes/meeting/2026-02-25.md</div>
+              <span class="tag modified">修改</span>
+            </div>
+            <div class="update-item">
+              <div class="tree-label">notes/specs/new-plan.md</div>
+              <span class="tag added">新增</span>
+            </div>
+            <div class="update-item">
+              <div class="tree-label">notes/research/merge-conflict.md</div>
+              <span class="tag modified">修改</span>
+            </div>
+          </div>
+        </div>
       </main>
 
       <aside class="aside panel conflict-panel is-visible">
@@ -687,5 +949,14 @@
 
     <div class="footer-note">无冲突态：移除冲突面板上的 is-visible 类后隐藏</div>
     <div class="footer-note">原型仅用于交互与布局示意</div>
+
+    <!-- 更新完成通知 -->
+    <div class="notification">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" style="color: var(--ok); width: 16px; height: 16px;">
+        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+        <path d="M22 4 12 14.01l-3-3" />
+      </svg>
+      <span>更新完成：共更新 3 个文件</span>
+    </div>
   </body>
 </html>
