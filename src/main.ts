@@ -31,7 +31,7 @@ const DEFAULT_SETTINGS: ObsidianSvnSettings = {
   username: "",
   persistPassword: false,
   savedPassword: "",
-  enableDebugLog: true
+  enableDebugLog: false
 };
 
 export default class ObsidianSvnPlugin extends Plugin {
