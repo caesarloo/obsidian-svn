@@ -8,6 +8,7 @@
       :root {
         --bg: #0e1a1f;
         --bg-2: #13252d;
+        --sidebar-width: 420px;
         --accent: #f6c453;
         --accent-2: #6bd0c2;
         --text: #f5f7f9;
@@ -48,9 +49,47 @@
 
       .app {
         display: grid;
-        grid-template-columns: 280px 1fr 360px;
+        grid-template-columns: minmax(0, 1fr) var(--sidebar-width);
+        grid-template-areas:
+          "editor sidebar"
+          "editor content"
+          "editor conflict";
+        align-items: start;
         gap: 18px;
         padding: 28px;
+        width: 100%;
+      }
+
+      .editor-area {
+        grid-area: editor;
+        min-height: calc(100vh - 56px);
+        background: #12232b;
+        border-radius: 14px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        box-shadow: var(--shadow);
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .editor-title {
+        font-size: 14px;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }
+
+      .editor-note {
+        font-size: 13px;
+        color: var(--text);
+        line-height: 1.6;
+        white-space: pre-wrap;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 10px;
+        padding: 14px;
+        flex: 1;
       }
 
       .brand {
@@ -77,6 +116,7 @@
       }
 
       .sidebar {
+        grid-area: sidebar;
         display: flex;
         flex-direction: column;
         gap: 14px;
@@ -145,6 +185,7 @@
       }
 
       .content {
+        grid-area: content;
         display: flex;
         flex-direction: column;
         gap: 14px;
@@ -255,6 +296,22 @@
         flex: 1;
       }
 
+      .tree-node.file .tree-label {
+        cursor: pointer;
+      }
+
+      .tree-node.file .tree-label:hover {
+        text-decoration: underline;
+      }
+
+      .update-item .tree-label {
+        cursor: pointer;
+      }
+
+      .update-item .tree-label:hover {
+        text-decoration: underline;
+      }
+
       .tree-actions {
         display: inline-flex;
         gap: 6px;
@@ -290,6 +347,20 @@
         box-shadow: var(--shadow);
         padding: 18px;
         margin-top: 14px;
+      }
+
+      .left-diff-window {
+        position: static;
+        width: 100%;
+        margin-top: 8px;
+        display: flex;
+        flex-direction: column;
+        min-height: 420px;
+      }
+
+      .left-diff-window .diff-content {
+        max-height: none;
+        flex: 1;
       }
 
       .diff-header {
@@ -547,6 +618,7 @@
       .tag.staged { background: rgba(107, 208, 194, 0.2); color: var(--accent-2); }
 
       .aside {
+        grid-area: conflict;
         display: flex;
         flex-direction: column;
         gap: 14px;
@@ -643,6 +715,16 @@
       @media (max-width: 1100px) {
         .app {
           grid-template-columns: 1fr;
+          grid-template-areas:
+            "editor"
+            "sidebar"
+            "content"
+            "conflict";
+        }
+
+        .left-diff-window {
+          width: 100%;
+          min-height: 320px;
         }
       }
 
@@ -658,6 +740,11 @@
   </head>
   <body>
     <div class="app">
+      <section class="editor-area">
+        <div class="editor-title">Obsidian 编辑器区</div>
+        <div class="editor-note"># 项目周报\n\n- 这是 Obsidian 主编辑区域的原型占位。\n- 左侧为编辑器区，右侧为 SVN 侧边栏。\n- 在右侧文件列表点击文件名可查看差异。</div>
+      </section>
+
       <aside class="sidebar panel">
         <div class="brand">OBSIDIAN SVN</div>
         <div class="section-title">快速操作</div>
@@ -741,15 +828,6 @@
                     <span class="tag added">新增</span>
                     <span class="tag staged">已暂存</span>
                     <div class="tree-actions">
-                      <button class="mini-btn" title="查看差异">
-                        <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
-                          <path d="M14 3v4a1 1 0 0 0 1 1h4" />
-                          <path d="M17 21h-10a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2z" />
-                          <path d="M7 8h10" />
-                          <path d="M7 12h10" />
-                          <path d="M7 16h10" />
-                        </svg>
-                      </button>
                       <button class="mini-btn" title="取消暂存">
                         <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
                           <path d="M5 12h14" />
@@ -794,15 +872,6 @@
                     <div class="tree-label">old-plan.md</div>
                     <span class="tag deleted">删除</span>
                     <div class="tree-actions">
-                      <button class="mini-btn" title="查看差异">
-                        <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
-                          <path d="M14 3v4a1 1 0 0 0 1 1h4" />
-                          <path d="M17 21h-10a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2z" />
-                          <path d="M7 8h10" />
-                          <path d="M7 12h10" />
-                          <path d="M7 16h10" />
-                        </svg>
-                      </button>
                       <button class="mini-btn" title="暂存">
                         <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
                           <path d="M12 5v14" />
@@ -848,15 +917,6 @@
                     <div class="tree-label">merge-conflict.md</div>
                     <span class="tag conflict">冲突</span>
                     <div class="tree-actions">
-                      <button class="mini-btn" title="查看差异">
-                        <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
-                          <path d="M14 3v4a1 1 0 0 0 1 1h4" />
-                          <path d="M17 21h-10a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2z" />
-                          <path d="M7 8h10" />
-                          <path d="M7 12h10" />
-                          <path d="M7 16h10" />
-                        </svg>
-                      </button>
                       <button class="mini-btn" title="暂存">
                         <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
                           <path d="M12 5v14" />
@@ -902,15 +962,6 @@
                     <div class="tree-label">draft.png</div>
                     <span class="tag untracked">未跟踪</span>
                     <div class="tree-actions">
-                      <button class="mini-btn" title="查看差异">
-                        <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
-                          <path d="M14 3v4a1 1 0 0 0 1 1h4" />
-                          <path d="M17 21h-10a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2z" />
-                          <path d="M7 8h10" />
-                          <path d="M7 12h10" />
-                          <path d="M7 16h10" />
-                        </svg>
-                      </button>
                       <button class="mini-btn" title="暂存">
                         <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
                           <path d="M12 5v14" />
@@ -935,15 +986,6 @@
               <span class="tag modified">修改</span>
               <span class="tag staged">已暂存</span>
               <div class="tree-actions">
-                    <button class="mini-btn" title="查看差异">
-                      <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
-                        <path d="M14 3v4a1 1 0 0 0 1 1h4" />
-                        <path d="M17 21h-10a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2z" />
-                        <path d="M7 8h10" />
-                        <path d="M7 12h10" />
-                        <path d="M7 16h10" />
-                      </svg>
-                    </button>
                     <button class="mini-btn" title="取消暂存">
                       <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
                         <path d="M5 12h14" />
@@ -961,7 +1003,7 @@
         </ul>
 
         <!-- 文件差异面板 -->
-        <div class="diff-panel hidden">
+        <div class="diff-panel left-diff-window hidden">
           <div class="panel-header">
             <div class="panel-title">文件差异 - roadmap.md</div>
             <button class="btn ghost" style="font-size: 10px;" aria-label="关闭差异面板">关闭</button>
@@ -1084,9 +1126,13 @@
       </aside>
     </div>
 
-    <div class="modal-backdrop is-open">
+    <div class="modal-backdrop">
       <div class="modal">
         <div class="modal-title">仓库配置</div>
+        <div class="field">
+          <label>工作副本路径</label>
+          <input type="text" value="当前 Obsidian 库根目录（默认）" readonly />
+        </div>
         <div class="field">
           <label>用户名</label>
           <input type="text" value="user.name" />
@@ -1094,6 +1140,10 @@
         <div class="field">
           <label>密码</label>
           <input type="password" value="******" />
+        </div>
+        <div class="field" style="flex-direction: row; align-items: center; gap: 8px; margin-top: 4px;">
+          <input id="secure-store" type="checkbox" checked style="width: 14px; height: 14px;" />
+          <label for="secure-store" style="margin: 0;">使用安全存储保存凭据</label>
         </div>
         <div class="modal-actions">
           <button class="btn">取消</button>
@@ -1106,7 +1156,7 @@
     <div class="footer-note">原型仅用于交互与布局示意</div>
 
     <!-- 更新完成通知 -->
-    <div class="notification">
+    <div class="notification hidden">
       <svg viewBox="0 0 24 24" fill="none" stroke-width="2" style="color: var(--ok); width: 16px; height: 16px;">
         <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
         <path d="M22 4 12 14.01l-3-3" />
@@ -1115,163 +1165,376 @@
     </div>
 
     <script>
-      // 等待 DOM 加载完成
       document.addEventListener('DOMContentLoaded', function() {
-        // 获取元素
         const diffPanel = document.querySelector('.diff-panel');
+        const editorArea = document.querySelector('.editor-area');
         const updateFeedbackPanel = document.querySelector('.update-feedback');
+        const conflictPanel = document.querySelector('.conflict-panel');
+        const fileTree = document.querySelector('.file-tree');
+        const commitTextarea = document.querySelector('.commit-box textarea');
         const notification = document.querySelector('.notification');
-        const diffButtons = document.querySelectorAll('.mini-btn[title="查看差异"]');
+        const notificationText = notification.querySelector('span');
         const diffCloseButton = diffPanel.querySelector('.btn.ghost');
         const updateCloseButton = updateFeedbackPanel.querySelector('.btn.ghost');
-        const updateButton = document.querySelector('.icon-btn[title="更新"]');
+        const diffPanelTitle = diffPanel.querySelector('.panel-title');
         const diffLoading = document.getElementById('diffLoading');
         const diffError = document.getElementById('diffError');
         const diffContent = document.getElementById('diffContent');
+        const modalBackdrop = document.querySelector('.modal-backdrop');
+        const modalCancelButton = modalBackdrop.querySelector('.modal-actions .btn');
+        const modalSaveButton = modalBackdrop.querySelector('.modal-actions .btn.primary');
+        const updateButton = document.querySelector('.icon-btn[title="更新"]');
+        const refreshButton = document.querySelector('.icon-btn[title="刷新"]');
+        const summarizeButton = document.querySelector('.icon-btn[title="生成摘要"]');
+        const commitButton = document.querySelector('.icon-btn[title="提交变更"]');
+        const settingButton = document.querySelector('.icon-btn[title="设置"]');
+        let notificationHideTimer = null;
+        let notificationFadeTimer = null;
 
-        // 模拟大文件差异数据
-        const largeDiffData = Array.from({ length: 100 }, (_, i) => {
-          if (i % 3 === 0) {
-            return `<div class="diff-line diff-added">
-              <div class="diff-line-number">${i + 1}</div>
-              <div class="diff-line-content">新增行 ${i + 1}: 这是一个新增的测试行，用于模拟大文件差异</div>
-            </div>`;
-          } else if (i % 3 === 1) {
-            return `<div class="diff-line diff-deleted">
-              <div class="diff-line-number">${i + 1}</div>
-              <div class="diff-line-content">删除行 ${i + 1}: 这是一个删除的测试行，用于模拟大文件差异</div>
-            </div>`;
-          } else {
-            return `<div class="diff-line">
-              <div class="diff-line-number">${i + 1}</div>
-              <div class="diff-line-content">保持行 ${i + 1}: 这是一个保持不变的测试行</div>
-            </div>`;
+        if (editorArea && diffPanel) {
+          editorArea.appendChild(diffPanel);
+        }
+
+        document.querySelectorAll('.tree-node.file .tree-label').forEach(label => {
+          label.setAttribute('tabindex', '0');
+          label.setAttribute('role', 'button');
+          label.setAttribute('aria-label', `查看差异：${label.textContent.trim()}`);
+        });
+
+        document.querySelectorAll('.update-item .tree-label').forEach(label => {
+          label.setAttribute('tabindex', '0');
+          label.setAttribute('role', 'button');
+          label.setAttribute('aria-label', `查看更新文件差异：${label.textContent.trim()}`);
+        });
+
+        const largeDiffData = Array.from({ length: 120 }, (_, i) => {
+          const line = i + 1;
+          if (line % 3 === 1) {
+            return { type: 'diff-added', line, content: `新增行 ${line}: roadmap 增加了新的阶段说明` };
           }
-        }).join('');
+          if (line % 3 === 2) {
+            return { type: 'diff-deleted', line, content: `删除行 ${line}: 移除了旧的里程碑描述` };
+          }
+          return { type: '', line, content: `保持行 ${line}: 本行内容无变更` };
+        });
 
-        // 点击差异按钮显示差异面板
-        diffButtons.forEach(button => {
-          button.addEventListener('click', function() {
-            // 显示加载状态
-            diffLoading.classList.remove('hidden');
-            diffError.classList.add('hidden');
-            diffContent.classList.add('hidden');
-            
-            // 模拟加载延迟
-            setTimeout(() => {
-              // 隐藏加载状态，显示内容
-              diffLoading.classList.add('hidden');
-              diffContent.classList.remove('hidden');
-              
-              // 检查是否需要模拟大文件差异
-              const fileLabel = this.closest('.tree-node').querySelector('.tree-label').textContent;
-              if (fileLabel === 'roadmap.md') {
-                // 对于大文件，模拟虚拟滚动
-                const diffContentElement = document.querySelector('.diff-content');
-                diffContentElement.classList.add('virtual-scroll');
-                
-                // 模拟虚拟滚动的实现（简化版）
-                diffContentElement.addEventListener('scroll', function() {
-                  // 这里可以实现真正的虚拟滚动逻辑
-                  console.log('虚拟滚动触发');
-                });
-              }
-              
-              // 显示差异面板
-              diffPanel.classList.remove('hidden');
-              updateFeedbackPanel.classList.add('hidden');
-            }, 500);
+        function showNotification(message) {
+          if (notificationFadeTimer) {
+            clearTimeout(notificationFadeTimer);
+            notificationFadeTimer = null;
+          }
+          if (notificationHideTimer) {
+            clearTimeout(notificationHideTimer);
+            notificationHideTimer = null;
+          }
+          notificationText.textContent = message;
+          notification.classList.remove('hidden', 'fade-out');
+          notificationFadeTimer = setTimeout(() => {
+            notification.classList.add('fade-out');
+            notificationHideTimer = setTimeout(() => notification.classList.add('hidden'), 300);
+          }, 2200);
+        }
+
+        function closeRepositoryConfigModal() {
+          modalBackdrop.classList.remove('is-open');
+        }
+
+        function updateConflictPanelVisibility() {
+          const hasConflict = Boolean(document.querySelector('.tag.conflict'));
+          conflictPanel.classList.toggle('is-visible', hasConflict);
+        }
+
+        function setStageButtonState(button, staged) {
+          button.title = staged ? '取消暂存' : '暂存';
+          const iconPath = staged
+            ? '<path d="M5 12h14" />'
+            : '<path d="M12 5v14" /><path d="M5 12h14" />';
+          button.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke-width="2">${iconPath}</svg>`;
+        }
+
+        function setFileStaged(fileNode, staged) {
+          const actions = fileNode.querySelector('.tree-actions');
+          const existedTag = fileNode.querySelector('.tag.staged');
+          const stageButton = fileNode.querySelector('.mini-btn[title="暂存"], .mini-btn[title="取消暂存"]');
+
+          if (staged && !existedTag) {
+            const tag = document.createElement('span');
+            tag.className = 'tag staged';
+            tag.textContent = '已暂存';
+            fileNode.insertBefore(tag, actions);
+          }
+
+          if (!staged && existedTag) {
+            existedTag.remove();
+          }
+
+          if (stageButton) {
+            setStageButtonState(stageButton, staged);
+          }
+        }
+
+        function revertFileNode(fileNode) {
+          const row = fileNode.closest('li') || fileNode;
+          row.remove();
+          updateConflictPanelVisibility();
+        }
+
+        function getStatusClass(fileNode) {
+          const tags = Array.from(fileNode.querySelectorAll('.tag')).filter(tag => !tag.classList.contains('staged'));
+          const classes = ['added', 'modified', 'deleted', 'conflict', 'untracked'];
+          for (const name of classes) {
+            if (tags.some(tag => tag.classList.contains(name))) {
+              return name;
+            }
+          }
+          return 'modified';
+        }
+
+        function collectFilesByStatus() {
+          const result = { added: [], modified: [], deleted: [], conflict: [], untracked: [] };
+          const files = fileTree.querySelectorAll('.tree-node.file');
+          files.forEach(fileNode => {
+            const fileName = fileNode.querySelector('.tree-label')?.textContent.trim();
+            if (!fileName) return;
+            const status = getStatusClass(fileNode);
+            result[status].push(fileName);
           });
-        });
+          return result;
+        }
 
-        // 点击关闭按钮隐藏差异面板
-        diffCloseButton.addEventListener('click', function() {
-          diffPanel.classList.add('hidden');
-        });
+        function generateSummaryText() {
+          const grouped = collectFilesByStatus();
+          const lines = ['更新了项目文件'];
+          const labelMap = {
+            added: '新增',
+            modified: '修改',
+            deleted: '删除',
+            conflict: '冲突',
+            untracked: '未跟踪'
+          };
 
-        // 点击更新按钮显示更新反馈面板
+          Object.keys(labelMap).forEach(key => {
+            const files = grouped[key];
+            if (files.length) {
+              lines.push(`${labelMap[key]}（${files.length}）`);
+              files.forEach(name => lines.push(`- ${name}`));
+            }
+          });
+
+          const stagedCount = document.querySelectorAll('.tag.staged').length;
+          lines.push(`已暂存文件：${stagedCount} 个`);
+          return lines.join('\n');
+        }
+
+        function renderDiffRows(rows) {
+          return rows.map(item => {
+            const rowClass = item.type ? `diff-line ${item.type}` : 'diff-line';
+            return `<div class="${rowClass}"><div class="diff-line-number">${item.line}</div><div class="diff-line-content">${item.content}</div></div>`;
+          }).join('');
+        }
+
+        function renderLargeDiffPage(pageIndex) {
+          const pageSize = 20;
+          const totalPages = Math.ceil(largeDiffData.length / pageSize);
+          const safePage = Math.max(1, Math.min(pageIndex, totalPages));
+          const start = (safePage - 1) * pageSize;
+          const rows = largeDiffData.slice(start, start + pageSize);
+
+          diffContent.innerHTML = `${renderDiffRows(rows)}
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-top:1px solid rgba(255,255,255,0.08);">
+              <button class="btn ghost" data-page-action="prev" ${safePage === 1 ? 'disabled' : ''}>上一页</button>
+              <span style="font-size:12px;color:var(--muted);">第 ${safePage} / ${totalPages} 页</span>
+              <button class="btn ghost" data-page-action="next" ${safePage === totalPages ? 'disabled' : ''}>下一页</button>
+            </div>`;
+
+          const prevButton = diffContent.querySelector('[data-page-action="prev"]');
+          const nextButton = diffContent.querySelector('[data-page-action="next"]');
+          if (prevButton) prevButton.addEventListener('click', () => renderLargeDiffPage(safePage - 1));
+          if (nextButton) nextButton.addEventListener('click', () => renderLargeDiffPage(safePage + 1));
+        }
+
+        function openDiffForFile(filePath, options = {}) {
+          const keepUpdatePanel = Boolean(options.keepUpdatePanel);
+          const normalizedPath = String(filePath || '').trim();
+          const displayName = options.displayName || normalizedPath.split('/').pop() || normalizedPath;
+          diffPanelTitle.textContent = `文件差异 - ${displayName}`;
+          diffLoading.classList.remove('hidden');
+          diffError.classList.add('hidden');
+          diffContent.classList.add('hidden');
+
+          setTimeout(() => {
+            diffLoading.classList.add('hidden');
+            if (displayName === 'merge-conflict.md') {
+              diffError.classList.remove('hidden');
+              diffContent.classList.add('hidden');
+            } else {
+              diffError.classList.add('hidden');
+              diffContent.classList.remove('hidden');
+              if (displayName === 'roadmap.md') {
+                renderLargeDiffPage(1);
+              } else {
+                diffContent.innerHTML = renderDiffRows([
+                  { type: '', line: 1, content: `# ${displayName}` },
+                  { type: 'diff-deleted', line: 2, content: '旧内容：待整理' },
+                  { type: 'diff-added', line: 2, content: '新内容：按 1.1 需求完成更新' },
+                  { type: '', line: 3, content: `路径：${normalizedPath || displayName}` },
+                  { type: '', line: 4, content: '备注：此处为内联差异展示原型' }
+                ]);
+              }
+            }
+            diffPanel.classList.remove('hidden');
+            if (!keepUpdatePanel) {
+              updateFeedbackPanel.classList.add('hidden');
+            }
+          }, 500);
+        }
+
+        function refreshStatus(silent) {
+          if (!silent) {
+            showNotification('状态已刷新，保留当前变更视图');
+          }
+          updateConflictPanelVisibility();
+        }
+
+        diffCloseButton.addEventListener('click', () => diffPanel.classList.add('hidden'));
+        updateCloseButton.addEventListener('click', () => updateFeedbackPanel.classList.add('hidden'));
+
         updateButton.addEventListener('click', function() {
-          // 显示加载状态
           const updateStats = updateFeedbackPanel.querySelector('.update-stats');
           const originalStats = updateStats.textContent;
-          updateStats.textContent = '正在更新...';
-          
-          // 模拟更新延迟
+          updateStats.textContent = '正在更新整个仓库...';
           setTimeout(() => {
-            // 恢复原始状态
             updateStats.textContent = originalStats;
-            
-            // 显示更新反馈面板
             updateFeedbackPanel.classList.remove('hidden');
             diffPanel.classList.add('hidden');
-            
-            // 显示通知
-            notification.classList.remove('hidden');
-            notification.classList.remove('fade-out');
-            
-            // 3秒后自动隐藏通知
-            setTimeout(() => {
-              notification.classList.add('fade-out');
-              setTimeout(() => {
-                notification.classList.add('hidden');
-              }, 300);
-            }, 3000);
-          }, 1000);
+            refreshStatus(true);
+            showNotification('更新完成：共更新 3 个文件');
+          }, 900);
         });
 
-        // 点击关闭按钮隐藏更新反馈面板
-        updateCloseButton.addEventListener('click', function() {
-          updateFeedbackPanel.classList.add('hidden');
+        refreshButton.addEventListener('click', () => refreshStatus(false));
+
+        summarizeButton.addEventListener('click', function() {
+          commitTextarea.value = generateSummaryText();
+          showNotification('已生成提交摘要（仅填充文本框）');
         });
 
-        // 3秒后自动隐藏通知
-        setTimeout(() => {
-          notification.classList.add('fade-out');
+        commitButton.addEventListener('click', function() {
+          const stagedTags = Array.from(document.querySelectorAll('.tag.staged'));
+          if (!stagedTags.length) {
+            showNotification('提交失败：请先暂存至少一个文件');
+            return;
+          }
+
+          showNotification('正在提交已暂存变更...');
           setTimeout(() => {
-            notification.classList.add('hidden');
-          }, 300);
-        }, 3000);
+            document.querySelectorAll('.tree-node.file').forEach(fileNode => setFileStaged(fileNode, false));
+            commitTextarea.value = '';
+            refreshStatus(true);
+            showNotification(`提交成功：${stagedTags.length} 个文件`);
+          }, 800);
+        });
 
-        // 键盘导航支持
+        settingButton.addEventListener('click', () => modalBackdrop.classList.add('is-open'));
+        modalCancelButton.addEventListener('click', closeRepositoryConfigModal);
+        modalSaveButton.addEventListener('click', function() {
+          closeRepositoryConfigModal();
+          showNotification('仓库配置已保存');
+        });
+
+        modalBackdrop.addEventListener('click', function(e) {
+          if (e.target === modalBackdrop) {
+            closeRepositoryConfigModal();
+          }
+        });
+
+        fileTree.addEventListener('click', function(e) {
+          const button = e.target.closest('.mini-btn');
+          if (button) {
+            const title = button.title;
+            const treeNode = button.closest('.tree-node');
+            const isFolder = treeNode?.classList.contains('folder');
+            const isFile = treeNode?.classList.contains('file');
+
+            if ((title === '暂存' || title === '取消暂存') && isFile) {
+              setFileStaged(treeNode, title === '暂存');
+              return;
+            }
+
+            if (title === '还原' && isFile) {
+              const fileName = treeNode.querySelector('.tree-label')?.textContent.trim() || '当前文件';
+              const confirmed = window.confirm(`确认还原文件 ${fileName} 吗？`);
+              if (confirmed) {
+                revertFileNode(treeNode);
+                showNotification(`已还原文件：${fileName}`);
+              }
+              return;
+            }
+
+            if (title === '暂存' && isFolder) {
+              const folderLi = button.closest('li.tree-folder');
+              const childFiles = folderLi ? folderLi.querySelectorAll('.tree-children .tree-node.file') : [];
+              childFiles.forEach(fileNode => setFileStaged(fileNode, true));
+              showNotification(`已暂存文件夹下 ${childFiles.length} 个文件`);
+              return;
+            }
+
+            if (title === '还原' && isFolder) {
+              const folderLi = button.closest('li.tree-folder');
+              const folderName = treeNode.querySelector('.tree-label')?.textContent.trim() || '当前文件夹';
+              const firstConfirm = window.confirm(`将递归还原文件夹 ${folderName} 的全部变更，是否继续？`);
+              if (!firstConfirm) return;
+              const secondConfirm = window.confirm('该操作不可撤销，请再次确认。');
+              if (!secondConfirm) return;
+              const revertedCount = folderLi ? folderLi.querySelectorAll('.tree-children .tree-node.file').length : 0;
+              if (folderLi) folderLi.remove();
+              updateConflictPanelVisibility();
+              showNotification(`已递归还原 ${revertedCount} 个文件`);
+              return;
+            }
+
+            return;
+          }
+
+          const fileLabel = e.target.closest('.tree-node.file .tree-label');
+          if (!fileLabel) return;
+          const fileNode = fileLabel.closest('.tree-node.file');
+          if (!fileNode) return;
+          const fileName = fileNode.querySelector('.tree-label')?.textContent.trim() || 'unknown';
+          openDiffForFile(fileName);
+        });
+
+        updateFeedbackPanel.addEventListener('click', function(e) {
+          const label = e.target.closest('.update-item .tree-label');
+          if (!label) return;
+          const fullPath = label.textContent.trim();
+          openDiffForFile(fullPath, { keepUpdatePanel: true });
+        });
+
         document.addEventListener('keydown', function(e) {
-          // Escape 键关闭当前面板
-          if (e.key === 'Escape') {
-            if (!diffPanel.classList.contains('hidden')) {
-              diffPanel.classList.add('hidden');
-            } else if (!updateFeedbackPanel.classList.contains('hidden')) {
-              updateFeedbackPanel.classList.add('hidden');
-            }
+          if (e.key !== 'Enter' && e.key !== ' ') return;
+          const label = e.target.closest('.tree-node.file .tree-label, .update-item .tree-label');
+          if (!label) return;
+          e.preventDefault();
+          label.click();
+        });
+
+        document.addEventListener('keydown', function(e) {
+          if (e.key !== 'Escape') return;
+          if (modalBackdrop.classList.contains('is-open')) {
+            closeRepositoryConfigModal();
+            return;
           }
-          
-          // Tab 键导航优化
-          if (e.key === 'Tab') {
-            // 可以在这里添加更复杂的键盘导航逻辑
+          if (!diffPanel.classList.contains('hidden')) {
+            diffPanel.classList.add('hidden');
+            return;
+          }
+          if (!updateFeedbackPanel.classList.contains('hidden')) {
+            updateFeedbackPanel.classList.add('hidden');
           }
         });
 
-        // 模拟错误场景
-        document.addEventListener('click', function(e) {
-          // 模拟点击某个特定元素时触发错误
-          if (e.target.closest('.tree-node') && e.target.closest('.tree-node').querySelector('.tree-label').textContent === 'merge-conflict.md') {
-            if (e.target.closest('.mini-btn[title="查看差异"]')) {
-              // 显示加载状态
-              diffLoading.classList.remove('hidden');
-              diffError.classList.add('hidden');
-              diffContent.classList.add('hidden');
-              
-              // 模拟加载失败
-              setTimeout(() => {
-                diffLoading.classList.add('hidden');
-                diffError.classList.remove('hidden');
-                diffContent.classList.add('hidden');
-                
-                // 显示差异面板
-                diffPanel.classList.remove('hidden');
-                updateFeedbackPanel.classList.add('hidden');
-              }, 1000);
-            }
-          }
-        });
+        refreshStatus(true);
       });
     </script>
   </body>
