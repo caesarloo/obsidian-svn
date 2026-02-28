@@ -15,15 +15,6 @@ import type { ObsidianSvnSettings, SvnCredentials } from "./types";
 
 const VIEW_TYPE_SVN_PANEL = "obsidian-svn-panel";
 
-const STATUS_LABELS: Record<SvnStatusKind, string> = {
-  added: "新增",
-  modified: "修改",
-  deleted: "删除",
-  conflict: "冲突",
-  untracked: "未跟踪",
-  missing: "缺失"
-};
-
 const DEFAULT_SETTINGS: ObsidianSvnSettings = {
   svnBinaryPath: "svn",
   workingCopyPath: "",

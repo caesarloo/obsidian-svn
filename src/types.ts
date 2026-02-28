@@ -1,3 +1,6 @@
+import type { Plugin } from "obsidian";
+import type { SvnClient } from "./services/svnClient";
+
 export type SvnStatusKind = "added" | "modified" | "deleted" | "conflict" | "untracked" | "missing";
 
 export interface SvnStatusEntry {
@@ -33,9 +36,9 @@ export interface SvnCredentials {
 }
 
 // 插件类型定义
-export interface ObsidianSvnPlugin {
+export interface ObsidianSvnPlugin extends Plugin {
   settings: ObsidianSvnSettings;
-  getSvnClient(): any;
+  getSvnClient(): SvnClient;
   debugLog(message: string, details?: unknown): void;
   setSessionPassword(password: string): void;
   getSessionPassword(): string;

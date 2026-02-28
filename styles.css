@@ -15,6 +15,23 @@
   padding: 12px;
 }
 
+.svn-panel.is-hidden {
+  display: none;
+}
+
+.svn-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.svn-panel-title {
+  font-size: 13px;
+  font-weight: 600;
+}
+
 .svn-brand {
   font-size: 20px;
   font-weight: 700;
@@ -102,6 +119,19 @@
 .svn-tree-label {
   flex: 1;
   word-break: break-all;
+}
+
+.svn-tree-link-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-normal);
+  text-align: left;
+  padding: 0;
+  cursor: pointer;
+}
+
+.svn-tree-link-btn:hover {
+  text-decoration: underline;
 }
 
 .svn-tree-actions {
@@ -216,6 +246,10 @@
   font-family: var(--font-monospace);
   font-size: 12px;
   line-height: 1.4;
+  max-height: 320px;
+  overflow: auto;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
 }
 
 .svn-diff-line {
@@ -238,6 +272,14 @@
   flex: 1;
   padding: 2px 8px;
   word-break: break-all;
+}
+
+.svn-diff-pager {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
 
 .svn-diff-added {
@@ -277,10 +319,26 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 8px;
   padding: 6px 8px;
   background: var(--background-secondary);
   border-radius: 6px;
   border: 1px solid var(--background-modifier-border);
+}
+
+.svn-update-link-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-normal);
+  text-align: left;
+  padding: 0;
+  cursor: pointer;
+  flex: 1;
+  word-break: break-all;
+}
+
+.svn-update-link-btn:hover {
+  text-decoration: underline;
 }
 
 @media (max-width: 1100px) {

@@ -4,7 +4,7 @@ import { access } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 import iconv from "iconv-lite";
-import type { SvnCredentials, SvnStatusEntry, SvnStatusKind, SvnDiff, UpdateResult, UpdateEntry } from "../types";
+import type { SvnCredentials, SvnStatusEntry, SvnStatusKind, SvnDiff, UpdateResult, UpdateEntry, DiffLine } from "../types";
 
 const execFileAsync = promisify(execFile);
 
