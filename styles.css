@@ -2,6 +2,29 @@
   padding: 8px;
 }
 
+.svn-diff-view-root {
+  padding: 12px;
+}
+
+.svn-diff-view-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.svn-diff-view-title {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.svn-diff-view-content {
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 10px;
+  padding: 10px;
+}
+
 .svn-app-grid {
   display: flex;
   flex-direction: column;
@@ -234,6 +257,8 @@
   margin-top: 8px;
   max-height: 400px;
   overflow: auto;
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 .svn-diff-file-path {
@@ -250,6 +275,8 @@
   overflow: auto;
   border: 1px solid var(--background-modifier-border);
   border-radius: 6px;
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 .svn-diff-line {
@@ -266,12 +293,17 @@
   background: var(--background-secondary);
   border-right: 1px solid var(--background-modifier-border);
   user-select: none;
+  -webkit-user-select: none;
+  pointer-events: none;
 }
 
 .svn-diff-line-content {
   flex: 1;
   padding: 2px 8px;
   word-break: break-all;
+  white-space: pre-wrap;
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 .svn-diff-pager {

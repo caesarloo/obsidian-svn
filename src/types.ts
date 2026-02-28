@@ -42,6 +42,7 @@ export interface ObsidianSvnPlugin extends Plugin {
   debugLog(message: string, details?: unknown): void;
   setSessionPassword(password: string): void;
   getSessionPassword(): string;
+  openDiffInEditor(diff: SvnDiff): Promise<void>;
   saveSettings(): Promise<void>;
 }
 

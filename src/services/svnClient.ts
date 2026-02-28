@@ -32,16 +32,95 @@ export class SvnClient {
   }
 
   async status(): Promise<SvnStatusEntry[]> {
-    const output = await this.run(["status"]);
-    const entries = output
-      .split(/\r?\n/)
-      .map((line) => line.trimEnd())
-      .filter(Boolean)
-      .map((line) => this.parseStatusLine(line))
-      .filter((entry): entry is SvnStatusEntry => entry !== null);
-
+    // 使用 XML 输出以避免命令行编码导致的文件名乱码问题
+    const xml = await this.runRawUtf8(["status", "--xml"]);
+    const entries = this.parseStatusXml(xml);
     entries.sort((a, b) => a.path.localeCompare(b.path));
     return entries;
+  }
+
+  private async runRawUtf8(args: string[]): Promise<string> {
+    const finalArgs = [...args];
+    if (this.credentials?.username?.trim()) {
+      finalArgs.push("--username", this.credentials.username.trim());
+    }
+    if (this.credentials?.password?.trim()) {
+      finalArgs.push("--password", this.credentials.password.trim());
+      finalArgs.push("--non-interactive");
+      finalArgs.push("--trust-server-cert-failures", "unknown-ca,cn-mismatch,expired,not-yet-valid,other");
+    }
+
+    const binaries = await this.resolveBinaryCandidates();
+    const safeArgs = this.maskSensitiveArgs(finalArgs);
+
+    for (const binary of binaries) {
+      this.debugLog("[Obsidian SVN] 执行命令 (raw utf8)", { binary, args: safeArgs, cwd: this.workingCopyPath });
+      try {
+        const { stdout } = await execFileAsync(binary, finalArgs, {
+          cwd: this.workingCopyPath,
+          windowsHide: true,
+          maxBuffer: 10 * 1024 * 1024,
+          encoding: 'buffer'
+        });
+        // 明确按 UTF-8 解码，不通过 repair 流程，避免 xml 标签被错误替换
+        const text = iconv.decode(stdout as Buffer, 'utf8');
+        this.debugLog("[Obsidian SVN] 命令执行成功 (raw utf8)", { binary, args: safeArgs, stdoutLength: text.length });
+        return text;
+      } catch (error) {
+        const err = error as Error & { code?: string | number; stderr?: Buffer | string };
+        if (err.code === 'ENOENT') {
+          console.warn('[Obsidian SVN] svn 可执行文件未找到 (raw utf8)，尝试下一个候选', { binary, args: safeArgs, message: err.message });
+          continue;
+        }
+        console.error('[Obsidian SVN] 命令执行失败 (raw utf8)', { binary, args: safeArgs, code: err.code, message: err.message });
+        const message = (err as any).message || 'SVN 命令执行失败';
+        throw new Error(message);
+      }
+    }
+    throw this.buildBinaryNotFoundError(binaries);
+  }
+
+  private parseStatusXml(xml: string): SvnStatusEntry[] {
+    const entries: SvnStatusEntry[] = [];
+    if (!xml) return entries;
+    // 匹配 <entry path="..."> ... <wc-status item="modified" .../>
+    const entryRe = /<entry\s+path="([^"]+)">([\s\S]*?)<\/entry>/g;
+    let m: RegExpExecArray | null;
+    while ((m = entryRe.exec(xml))) {
+      const pathAttr = m[1];
+      const inner = m[2];
+      const wcMatch = inner.match(/<wc-status[^>]*item="([^"]+)"/);
+      const item = wcMatch ? wcMatch[1] : '';
+      const normalizedPath = pathAttr.replace(/\\/g, '/');
+      const splitIndex = normalizedPath.lastIndexOf('/');
+      const fileName = splitIndex >= 0 ? normalizedPath.slice(splitIndex + 1) : normalizedPath;
+      const folderPath = splitIndex >= 0 ? normalizedPath.slice(0, splitIndex) : '';
+      const status = this.mapStatusFromItem(item);
+      if (status) {
+        entries.push({ path: normalizedPath, fileName, folderPath, status });
+      }
+    }
+    return entries;
+  }
+
+  private mapStatusFromItem(item: string): SvnStatusKind | null {
+    switch (item) {
+      case 'added':
+      case 'external':
+        return 'added';
+      case 'modified':
+        return 'modified';
+      case 'deleted':
+        return 'deleted';
+      case 'conflicted':
+        return 'conflict';
+      case 'unversioned':
+        return 'untracked';
+      case 'missing':
+        return 'missing';
+      default:
+        return null;
+    }
   }
 
   async update(): Promise<UpdateResult> {
@@ -131,10 +210,100 @@ export class SvnClient {
       }
     }
 
+    const normalizedDiffLines = this.normalizeDiffLines(diffLines);
+
     return {
       filePath,
-      lines: diffLines
+      lines: normalizedDiffLines
     };
+  }
+
+  private normalizeDiffLines(lines: DiffLine[]): DiffLine[] {
+    const result: DiffLine[] = [];
+
+    for (let i = 0; i < lines.length; i++) {
+      const current = lines[i];
+      const next = lines[i + 1];
+
+      if ((current.type === "added" || current.type === "deleted") && this.isMarkdownSeparatorLine(current.content)) {
+        continue;
+      }
+
+      if (this.isWhitespaceOnlyLine(current) && (current.type === "added" || current.type === "deleted")) {
+        continue;
+      }
+
+      if (
+        current.type === "deleted" &&
+        next &&
+        next.type === "added" &&
+        this.normalizeForWhitespaceCompare(current.content) === this.normalizeForWhitespaceCompare(next.content)
+      ) {
+        result.push({
+          lineNumber: current.lineNumber,
+          content: next.content,
+          type: "unchanged"
+        });
+        i += 1;
+        continue;
+      }
+
+      result.push(current);
+    }
+
+    return this.cancelEquivalentDiffLines(result);
+  }
+
+  private cancelEquivalentDiffLines(lines: DiffLine[]): DiffLine[] {
+    const deletedMap = new Map<string, number[]>();
+    const addedMap = new Map<string, number[]>();
+    const cancelled = new Set<number>();
+
+    lines.forEach((line, index) => {
+      if (line.type !== "added" && line.type !== "deleted") {
+        return;
+      }
+
+      const key = this.normalizeForWhitespaceCompare(line.content);
+      if (!key) {
+        return;
+      }
+
+      if (line.type === "deleted") {
+        const queue = deletedMap.get(key) ?? [];
+        queue.push(index);
+        deletedMap.set(key, queue);
+        return;
+      }
+
+      const queue = addedMap.get(key) ?? [];
+      queue.push(index);
+      addedMap.set(key, queue);
+    });
+
+    deletedMap.forEach((deletedIndexes, key) => {
+      const addedIndexes = addedMap.get(key) ?? [];
+      const pairCount = Math.min(deletedIndexes.length, addedIndexes.length);
+      for (let i = 0; i < pairCount; i++) {
+        cancelled.add(deletedIndexes[i]);
+        cancelled.add(addedIndexes[i]);
+      }
+    });
+
+    return lines.filter((_, index) => !cancelled.has(index));
+  }
+
+  private normalizeForWhitespaceCompare(content: string): string {
+    return content.replace(/\s+/g, "");
+  }
+
+  private isMarkdownSeparatorLine(content: string): boolean {
+    const trimmed = content.trim();
+    return trimmed === "---";
+  }
+
+  private isWhitespaceOnlyLine(line: DiffLine): boolean {
+    return this.normalizeForWhitespaceCompare(line.content).length === 0;
   }
 
   async add(paths: string[]): Promise<string> {
@@ -181,8 +350,34 @@ export class SvnClient {
     if (!message.trim()) {
       throw new Error("提交备注不能为空。");
     }
-    this.validatePaths(paths);
-    this.validateInput(message, "提交备注");
+    this.debugLog("[Obsidian SVN] 提交校验开始", {
+      stagedCount: paths.length,
+      messageLength: message.length,
+      messagePreview: message.slice(0, 120)
+    });
+
+    try {
+      this.validatePaths(paths);
+      this.validateCommitMessage(message);
+      this.debugLog("[Obsidian SVN] 提交校验通过", {
+        stagedCount: paths.length,
+        messageLength: message.length
+      });
+    } catch (error) {
+      this.debugLog("[Obsidian SVN] 提交校验失败", {
+        stagedCount: paths.length,
+        messageLength: message.length,
+        reason: (error as Error).message
+      });
+      throw error;
+    }
+
+    this.debugLog("[Obsidian SVN] 提交参数", {
+      stagedCount: paths.length,
+      stagedPaths: paths,
+      messageLength: message.length,
+      messagePreview: message.slice(0, 200)
+    });
     return await this.run(["commit", "-m", message, ...paths]);
   }
 
@@ -310,7 +505,37 @@ export class SvnClient {
 
     this.debugLog("[Obsidian SVN] 解析状态行", { line, code, pathPart, pathPartLength: pathPart.length });
 
-    const normalizedPath = pathPart.replace(/\\/g, "/");
+    // 若 pathPart 可能含有 mojibake，则尝试修复单行路径（降低乱码文件名出现概率）
+    let repairedPathPart = pathPart;
+    if (this.hasMojibakeHint(pathPart) || this.countReplacementChars(pathPart) > 0) {
+      const repaired = this.repairMojibakeLines(pathPart);
+      if (repaired.changedCount > 0) {
+        repairedPathPart = repaired.text;
+      } else {
+        // 走额外尝试链，挑选 CJK 最多且替换字符最少的结果
+        const attempts = [
+          this.safeRecode(pathPart, 'gbk', 'utf8'),
+          this.safeRecode(pathPart, 'utf8', 'gbk'),
+          this.safeRecode(pathPart, 'gb18030', 'utf8'),
+          this.safeRecode(pathPart, 'utf8', 'gb18030')
+        ];
+        let best = repairedPathPart;
+        let bestScore = this.countCjk(best) - this.countReplacementChars(best) * 5;
+        for (const a of attempts) {
+          const score = this.countCjk(a) - this.countReplacementChars(a) * 5;
+          if (score > bestScore) {
+            bestScore = score;
+            best = a;
+          }
+        }
+        repairedPathPart = best;
+      }
+      if (repairedPathPart !== pathPart) {
+        this.debugLog('[Obsidian SVN] 解析状态行 - 路径修复', { original: pathPart, repaired: repairedPathPart });
+      }
+    }
+
+    const normalizedPath = repairedPathPart.replace(/\\/g, "/");
     const splitIndex = normalizedPath.lastIndexOf("/");
     const fileName = splitIndex >= 0 ? normalizedPath.slice(splitIndex + 1) : normalizedPath;
     const folderPath = splitIndex >= 0 ? normalizedPath.slice(0, splitIndex) : "";
@@ -358,6 +583,11 @@ export class SvnClient {
     
     for (const pattern of dangerousPatterns) {
       if (pattern.test(input)) {
+        this.debugLog("[Obsidian SVN] 输入校验拦截", {
+          context,
+          pattern: pattern.toString(),
+          preview: input.slice(0, 120)
+        });
         throw new Error(`输入验证失败：${context} 包含危险字符`);
       }
     }
@@ -367,6 +597,235 @@ export class SvnClient {
     for (const path of paths) {
       this.validateInput(path, `文件路径 "${path}"`);
     }
+  }
+
+  private validateCommitMessage(message: string): void {
+    if (message.includes("\u0000")) {
+      this.debugLog("[Obsidian SVN] 提交备注校验拦截", {
+        reason: "包含空字符",
+        messageLength: message.length,
+        messagePreview: message.slice(0, 120)
+      });
+      throw new Error("输入验证失败：提交备注包含非法字符");
+    }
+
+    const invalidControl = /[\u0001-\u0008\u000B\u000C\u000E-\u001F]/;
+    if (invalidControl.test(message)) {
+      this.debugLog("[Obsidian SVN] 提交备注校验拦截", {
+        reason: "包含非法控制字符",
+        messageLength: message.length,
+        messagePreview: message.slice(0, 120)
+      });
+      throw new Error("输入验证失败：提交备注包含非法控制字符");
+    }
+
+    this.debugLog("[Obsidian SVN] 提交备注校验通过", {
+      messageLength: message.length,
+      hasLineBreak: /\r|\n/.test(message)
+    });
+  }
+
+  private decodeBuffer(input: Buffer | string | undefined): string {
+    if (input === undefined) {
+      return "";
+    }
+    if (typeof input === "string") {
+      return input;
+    }
+
+    const utf8 = iconv.decode(input, "utf8");
+    const gbk = iconv.decode(input, "gbk");
+    const gb18030 = iconv.decode(input, "gb18030");
+    const latin1 = iconv.decode(input, "latin1");
+
+    const candidates: Array<{
+      source: string;
+      text: string;
+      score: number;
+      replacementCount: number;
+      cjkCount: number;
+      sample: string;
+    }> = [
+      { source: "utf8", text: utf8, score: this.getDecodeScore(utf8), replacementCount: this.countReplacementChars(utf8), cjkCount: this.countCjk(utf8), sample: utf8.slice(0, 60) },
+      { source: "gbk", text: gbk, score: this.getDecodeScore(gbk), replacementCount: this.countReplacementChars(gbk), cjkCount: this.countCjk(gbk), sample: gbk.slice(0, 60) },
+      { source: "gb18030", text: gb18030, score: this.getDecodeScore(gb18030), replacementCount: this.countReplacementChars(gb18030), cjkCount: this.countCjk(gb18030), sample: gb18030.slice(0, 60) },
+      { source: "latin1", text: latin1, score: this.getDecodeScore(latin1), replacementCount: this.countReplacementChars(latin1), cjkCount: this.countCjk(latin1), sample: latin1.slice(0, 60) },
+      { source: "repair:gbk->utf8", text: this.safeRecode(gbk, "gbk", "utf8"), score: 0, replacementCount: 0, cjkCount: 0, sample: "" },
+      { source: "repair:gb18030->utf8", text: this.safeRecode(gb18030, "gb18030", "utf8"), score: 0, replacementCount: 0, cjkCount: 0, sample: "" }
+    ];
+
+    // 计算修复链的分数与统计
+    for (const candidate of candidates) {
+      if (candidate.source.startsWith("repair:")) {
+        candidate.score = this.getDecodeScore(candidate.text);
+        candidate.replacementCount = this.countReplacementChars(candidate.text);
+        candidate.cjkCount = this.countCjk(candidate.text);
+        candidate.sample = candidate.text.slice(0, 60);
+      }
+    }
+
+    // 去重相同文本
+    const uniqueCandidates = candidates.filter((candidate, index, array) => array.findIndex((other) => other.text === candidate.text) === index);
+
+    // 优先 replacementCount 最低的候选，再在这些候选中按 cjkCount 降序选择
+    const minReplacement = Math.min(...uniqueCandidates.map(c => c.replacementCount));
+    let filtered = uniqueCandidates.filter(c => c.replacementCount === minReplacement);
+    filtered.sort((a, b) => b.cjkCount - a.cjkCount || a.score - b.score);
+    // 如果候选集中包含 utf8，则优先选择 utf8（在替换字符相同的已筛选集合中）
+    const utf8Preferred = filtered.find(c => c.source === 'utf8');
+    const best = utf8Preferred ?? filtered[0] ?? uniqueCandidates[0];
+
+    let repaired = this.repairMojibakeLines(best.text);
+
+    // 若最佳结果仍有 mojibake 或替换字符，进行全缓冲区修复尝试（跨多种编码组合）
+    const repairedReplacementCount = this.countReplacementChars(repaired.text);
+    if (this.hasMojibakeHint(repaired.text) || repairedReplacementCount > 0) {
+      const pool: Array<{ name: string; text: string }> = [
+        { name: 'utf8', text: utf8 },
+        { name: 'gbk', text: gbk },
+        { name: 'gb18030', text: gb18030 },
+        { name: 'latin1', text: latin1 }
+      ];
+      const fullCandidates: Array<{ source: string; text: string; replacement: number; score: number; cjk: number }> = [];
+      // include originals
+      for (const p of pool) {
+        fullCandidates.push({ source: p.name, text: p.text, replacement: this.countReplacementChars(p.text), score: this.getDecodeScore(p.text), cjk: this.countCjk(p.text) });
+      }
+      // try pairwise recoding
+      for (const from of pool) {
+        for (const to of pool) {
+          if (from.name === to.name) continue;
+          try {
+            const t = this.safeRecode(from.text, from.name as any, to.name as any);
+            fullCandidates.push({ source: `${from.name}->${to.name}`, text: t, replacement: this.countReplacementChars(t), score: this.getDecodeScore(t), cjk: this.countCjk(t) });
+          } catch {
+            // ignore
+          }
+        }
+      }
+      // choose best: minimal replacement, then minimal score, then max cjk
+      fullCandidates.sort((a, b) => {
+        if (a.replacement !== b.replacement) return a.replacement - b.replacement;
+        if (a.score !== b.score) return a.score - b.score;
+        return b.cjk - a.cjk;
+      });
+      const fullBest = fullCandidates[0];
+      if (fullBest && (fullBest.replacement < repairedReplacementCount || this.countCjk(fullBest.text) > this.countCjk(repaired.text))) {
+        const secondPass = this.repairMojibakeLines(fullBest.text);
+        this.debugLog('[Obsidian SVN] 全缓冲区修复选择', { fullBestSource: fullBest.source, fullBestReplacement: fullBest.replacement, fullBestCjk: fullBest.cjk, secondPassChanged: secondPass.changedCount });
+        repaired = secondPass;
+      }
+    }
+
+    // include raw buffer hex sample for debugging
+    const rawHexSample = (input as Buffer).slice(0, 120).toString('hex');
+
+    this.debugLog("[Obsidian SVN] 编码解码来源", {
+      selectedSource: best.source,
+      selectedScore: best.score,
+      replacementCounts: uniqueCandidates.map(c => ({ source: c.source, replacementCount: c.replacementCount })),
+      cjkCounts: uniqueCandidates.map(c => ({ source: c.source, cjkCount: c.cjkCount })),
+      candidates: uniqueCandidates.map(c => c.source),
+      debugSamples: uniqueCandidates.map(c => ({ source: c.source, sample: c.sample })),
+      rawHexSample,
+      lineRepairCount: repaired.changedCount,
+      repairedSamples: repaired.samples,
+      outputPreview: repaired.text.slice(0, 120)
+    });
+
+    return repaired.text;
+  }
+
+  private repairMojibakeLines(text: string): { text: string; changedCount: number; samples: Array<{ before: string; after: string }> } {
+    if (!text) {
+      return { text, changedCount: 0, samples: [] };
+    }
+
+    const lineBreak = text.includes("\r\n") ? "\r\n" : "\n";
+    const lines = text.split(/\r?\n/);
+    let changedCount = 0;
+    const samples: Array<{ before: string; after: string }> = [];
+
+    const repairedLines = lines.map((line) => {
+      if (!this.hasMojibakeHint(line) && this.countReplacementChars(line) === 0) {
+        return line;
+      }
+
+      const attempts = [
+        { from: 'gbk', to: 'utf8' },
+        { from: 'gb18030', to: 'utf8' },
+        { from: 'latin1', to: 'utf8' }
+      ];
+
+      const candidates = attempts.map((a) => {
+        const text = this.safeRecode(line, a.from as any, a.to as any);
+        return {
+          text,
+          from: a.from,
+          to: a.to,
+          score: this.getDecodeScore(text),
+          cjk: this.countCjk(text),
+          replacement: this.countReplacementChars(text)
+        };
+      });
+
+      // include original as candidate too for fair comparison
+      candidates.push({ text: line, from: 'original', to: 'original', score: this.getDecodeScore(line), cjk: this.countCjk(line), replacement: this.countReplacementChars(line) });
+
+      // choose candidate with minimal score; tie-breaker: maximal cjk, minimal replacement
+      candidates.sort((a, b) => {
+        if (a.replacement !== b.replacement) return a.replacement - b.replacement;
+        if (a.score !== b.score) return a.score - b.score;
+        return b.cjk - a.cjk;
+      });
+
+      const best = candidates[0];
+      const originalScore = this.getDecodeScore(line);
+      const originalCjk = this.countCjk(line);
+
+      if ((best.text !== line) && (best.score <= originalScore || best.cjk >= originalCjk)) {
+        changedCount += 1;
+        if (samples.length < 3) {
+          samples.push({ before: line.slice(0, 120), after: best.text.slice(0, 120) });
+        }
+        return best.text;
+      }
+
+      return line;
+    });
+
+    return {
+      text: repairedLines.join(lineBreak),
+      changedCount,
+      samples
+    };
+  }
+
+  private safeRecode(text: string, from: "utf8" | "gbk" | "gb18030" | "latin1", to: "utf8" | "gbk" | "gb18030" | "latin1"): string {
+    try {
+      return iconv.decode(iconv.encode(text, from), to);
+    } catch {
+      return text;
+    }
+  }
+
+  private getDecodeScore(text: string): number {
+    const replacementCount = this.countReplacementChars(text);
+    const controlCount = (text.match(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g) ?? []).length;
+    const mojibakeHints = (text.match(/[ÃÂÐÊÔ鍙鍚鍏闇璇璐锛锟閭闂]/g) ?? []).length;
+    return replacementCount * 20 + controlCount * 5 + mojibakeHints * 3;
+  }
+
+  private countReplacementChars(text: string): number {
+    return (text.match(/\uFFFD/g) ?? []).length;
+  }
+
+  private hasMojibakeHint(text: string): boolean {
+    return /(?:璐|闇€|鍙|閭|鎴|锛�|锟�|姹|鑳藉姏|閭欢)/.test(text);
+  }
+
+  private countCjk(text: string): number {
+    return (text.match(/[\u4E00-\u9FFF]/g) ?? []).length;
   }
 
   private async run(args: string[]): Promise<string> {
@@ -398,16 +857,7 @@ export class SvnClient {
           maxBuffer: 10 * 1024 * 1024,
           encoding: 'buffer' // 以 Buffer 形式返回输出
         });
-        
-        // 尝试用不同的编码解码输出
-        let decodedOutput: string;
-        try {
-          // 首先尝试 GBK 编码（Windows 中文系统的默认编码）
-          decodedOutput = iconv.decode(stdout, 'gbk');
-        } catch {
-          // 如果失败，尝试 UTF-8
-          decodedOutput = iconv.decode(stdout, 'utf8');
-        }
+        const decodedOutput = this.decodeBuffer(stdout as Buffer | string | undefined);
         
         this.debugLog("[Obsidian SVN] 命令执行成功", {
           binary,
@@ -417,7 +867,7 @@ export class SvnClient {
         });
         return decodedOutput;
       } catch (error) {
-        const err = error as Error & { stderr?: string; stdout?: string; code?: string | number };
+        const err = error as Error & { stderr?: Buffer | string; stdout?: Buffer | string; code?: string | number };
 
         if (err.code === "ENOENT") {
           console.warn("[Obsidian SVN] svn 可执行文件未找到，尝试下一个候选", {
@@ -432,12 +882,12 @@ export class SvnClient {
           binary,
           args: safeArgs,
           code: err.code,
-          stderr: err.stderr,
-          stdout: err.stdout,
+          stderr: this.decodeBuffer(err.stderr),
+          stdout: this.decodeBuffer(err.stdout),
           message: err.message,
           stack: err.stack
         });
-        const message = err.stderr?.trim() || err.message || "SVN 命令执行失败";
+        const message = this.decodeBuffer(err.stderr).trim() || err.message || "SVN 命令执行失败";
         throw new Error(message);
       }
     }

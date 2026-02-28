@@ -9,11 +9,13 @@ import { SvnClient } from "./services/svnClient";
 import { generateSummaryWithFallback } from "./services/summaryService";
 import { encryptPassword, decryptPassword } from "./services/cryptoService";
 import { SvnPanelView } from "./views/SvnPanelView";
+import { SvnDiffView } from "./views/SvnDiffView";
 import { RepositoryConfigModal } from "./views/RepositoryConfigModal";
 import { ObsidianSvnSettingTab } from "./views/ObsidianSvnSettingTab";
-import type { ObsidianSvnSettings, SvnCredentials } from "./types";
+import type { ObsidianSvnSettings, SvnCredentials, SvnDiff } from "./types";
 
 const VIEW_TYPE_SVN_PANEL = "obsidian-svn-panel";
+const VIEW_TYPE_SVN_DIFF = "obsidian-svn-diff-view";
 
 const DEFAULT_SETTINGS: ObsidianSvnSettings = {
   svnBinaryPath: "svn",
@@ -33,10 +35,12 @@ const DEFAULT_SETTINGS: ObsidianSvnSettings = {
 export default class ObsidianSvnPlugin extends Plugin {
   settings: ObsidianSvnSettings = DEFAULT_SETTINGS;
   private sessionPassword = "";
+  private diffLeaf: WorkspaceLeaf | null = null;
 
   async onload(): Promise<void> {
     await this.loadSettings();
     this.registerView(VIEW_TYPE_SVN_PANEL, (leaf) => new SvnPanelView(leaf, this));
+    this.registerView(VIEW_TYPE_SVN_DIFF, (leaf) => new SvnDiffView(leaf));
 
     this.addRibbonIcon("git-pull-request-arrow", "Open Obsidian SVN", () => {
       void this.activateView();
@@ -103,7 +107,9 @@ export default class ObsidianSvnPlugin extends Plugin {
   }
 
   onunload(): void {
+    this.diffLeaf = null;
     this.app.workspace.detachLeavesOfType(VIEW_TYPE_SVN_PANEL);
+    this.app.workspace.detachLeavesOfType(VIEW_TYPE_SVN_DIFF);
   }
 
   async loadSettings(): Promise<void> {
@@ -152,6 +158,40 @@ export default class ObsidianSvnPlugin extends Plugin {
 
   getSessionPassword(): string {
     return this.sessionPassword;
+  }
+
+  async openDiffInEditor(diff: SvnDiff): Promise<void> {
+    const diffLeaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_SVN_DIFF);
+    const trackedLeaf = this.diffLeaf;
+    const trackedValid = trackedLeaf ? diffLeaves.includes(trackedLeaf) : false;
+
+    if (!trackedValid && diffLeaves.length > 0) {
+      this.diffLeaf = diffLeaves[0];
+    }
+
+    const leaf = this.diffLeaf ?? this.app.workspace.getLeaf("tab");
+    if (!leaf) {
+      new Notice("无法打开差异视图");
+      return;
+    }
+
+    this.diffLeaf = leaf;
+
+    if (diffLeaves.length > 1) {
+      diffLeaves.slice(1).forEach((extraLeaf) => {
+        if (extraLeaf !== this.diffLeaf) {
+          extraLeaf.detach();
+        }
+      });
+    }
+
+    await leaf.setViewState({ type: VIEW_TYPE_SVN_DIFF, active: true });
+    await this.app.workspace.revealLeaf(leaf);
+
+    const view = leaf.view;
+    if (view instanceof SvnDiffView) {
+      await view.setDiff(diff);
+    }
   }
 
   private getCredentials(): SvnCredentials | undefined {

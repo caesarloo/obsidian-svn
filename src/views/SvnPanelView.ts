@@ -1,7 +1,7 @@
 import { ItemView, Notice, WorkspaceLeaf, setIcon } from "obsidian";
 import { generateSummaryWithFallback } from "../services/summaryService";
 import { RepositoryConfigModal } from "./RepositoryConfigModal";
-import type { GroupedStatus, ObsidianSvnPlugin, SvnStatusEntry, SvnStatusKind, SvnDiff, UpdateResult } from "../types";
+import type { GroupedStatus, ObsidianSvnPlugin, SvnStatusEntry, SvnStatusKind, UpdateResult } from "../types";
 
 const STATUS_LABELS: Record<SvnStatusKind, string> = {
   added: "新增",
@@ -17,16 +17,11 @@ export class SvnPanelView extends ItemView {
   private staged = new Set<string>();
   private collapsedFolders = new Set<string>();
   private commitMessage = "";
-  private currentDiff: SvnDiff | null = null;
   private updateResult: UpdateResult | null = null;
-  private diffPage = 1;
 
   private statusTreeEl: HTMLDivElement | null = null;
   private commitInputEl: HTMLTextAreaElement | null = null;
   private conflictPanelEl: HTMLDivElement | null = null;
-  private diffPanelEl: HTMLDivElement | null = null;
-  private diffTitleEl: HTMLDivElement | null = null;
-  private diffContentEl: HTMLDivElement | null = null;
   private updateFeedbackEl: HTMLDivElement | null = null;
   private updateContentEl: HTMLDivElement | null = null;
   private loadingEl: HTMLDivElement | null = null;
@@ -146,18 +141,30 @@ export class SvnPanelView extends ItemView {
       this.showLoading("提交中...");
       const client = this.plugin.getSvnClient();
       const map = new Map(this.entries.map((entry) => [entry.path, entry]));
+      this.plugin.debugLog("[Obsidian SVN] 开始提交", {
+        stagedCount: stagedPaths.length,
+        stagedPaths,
+        messageLength: message.length,
+        messagePreview: message.slice(0, 200)
+      });
 
       const untracked = stagedPaths.filter((path) => map.get(path)?.status === "untracked");
       if (untracked.length) {
+        this.plugin.debugLog("[Obsidian SVN] 提交前自动 add", { untracked });
         await client.add(untracked);
       }
 
       const missing = stagedPaths.filter((path) => map.get(path)?.status === "missing");
       if (missing.length) {
+        this.plugin.debugLog("[Obsidian SVN] 提交前自动 delete", { missing });
         await client.delete(missing);
       }
 
-      await client.commit(stagedPaths, message);
+      const commitOutput = await client.commit(stagedPaths, message);
+      this.plugin.debugLog("[Obsidian SVN] 提交成功", {
+        stagedCount: stagedPaths.length,
+        outputSample: commitOutput.slice(0, 500)
+      });
       this.staged.clear();
       this.commitMessage = "";
       if (this.commitInputEl) {
@@ -169,6 +176,11 @@ export class SvnPanelView extends ItemView {
         new Notice("提交后检测到冲突，请先处理冲突。");
       }
     } catch (error) {
+      this.plugin.debugLog("[Obsidian SVN] 提交失败", {
+        message: (error as Error).message,
+        stagedCount: stagedPaths.length,
+        stagedPaths
+      });
       new Notice(`提交失败：${(error as Error).message}`);
     } finally {
       this.hideLoading();
@@ -239,14 +251,6 @@ export class SvnPanelView extends ItemView {
 
     this.conflictPanelEl = appGrid.createDiv({ cls: "svn-panel svn-conflict-panel" });
     this.renderConflicts();
-
-    this.diffPanelEl = appGrid.createDiv({ cls: "svn-panel svn-diff-panel is-hidden" });
-    const diffHeader = this.diffPanelEl.createDiv({ cls: "svn-panel-header" });
-    this.diffTitleEl = diffHeader.createDiv({ cls: "svn-panel-title", text: "文件差异" });
-    const diffClose = diffHeader.createEl("button", { cls: "svn-btn", text: "关闭", attr: { "aria-label": "关闭差异面板" } });
-    diffClose.addEventListener("click", () => this.hideDiffPanel());
-    this.diffContentEl = this.diffPanelEl.createDiv({ cls: "svn-diff-content" });
-    this.diffContentEl.createDiv({ cls: "svn-helper-text", text: "点击文件名查看文件差异" });
 
     this.updateFeedbackEl = appGrid.createDiv({ cls: "svn-panel svn-update-feedback is-hidden" });
     const updateHeader = this.updateFeedbackEl.createDiv({ cls: "svn-panel-header" });
@@ -453,10 +457,7 @@ export class SvnPanelView extends ItemView {
       this.showLoading("获取文件差异中...");
       const client = this.plugin.getSvnClient();
       const diff = await client.diff(path);
-      this.currentDiff = diff;
-      this.diffPage = 1;
-      this.renderDiff();
-      this.showDiffPanel();
+      await this.plugin.openDiffInEditor(diff);
       if (!keepUpdatePanel) {
         this.hideUpdateFeedback();
       }
@@ -464,59 +465,6 @@ export class SvnPanelView extends ItemView {
       new Notice(`获取差异失败：${(error as Error).message}`);
     } finally {
       this.hideLoading();
-    }
-  }
-
-  private renderDiff(): void {
-    if (!this.diffContentEl || !this.currentDiff) {
-      return;
-    }
-
-    this.diffContentEl.empty();
-    if (this.diffTitleEl) {
-      this.diffTitleEl.setText(`文件差异 - ${this.currentDiff.filePath}`);
-    }
-
-    this.diffContentEl.createDiv({ cls: "svn-diff-file-path", text: this.currentDiff.filePath });
-
-    const pageSize = 400;
-    const totalLines = this.currentDiff.lines.length;
-    const totalPages = Math.max(1, Math.ceil(totalLines / pageSize));
-    this.diffPage = Math.max(1, Math.min(this.diffPage, totalPages));
-    const start = (this.diffPage - 1) * pageSize;
-    const end = start + pageSize;
-    const pageLines = this.currentDiff.lines.slice(start, end);
-
-    const diffLinesEl = this.diffContentEl.createDiv({ cls: "svn-diff-lines svn-virtual-scroll" });
-
-    pageLines.forEach((line) => {
-      const lineEl = diffLinesEl.createDiv({ cls: `svn-diff-line svn-diff-${line.type}` });
-      lineEl.createSpan({ cls: "svn-diff-line-number", text: line.lineNumber.toString() });
-      lineEl.createSpan({ cls: "svn-diff-line-content", text: line.content });
-    });
-
-    if (!this.currentDiff.lines.length) {
-      this.diffContentEl.createDiv({ cls: "svn-helper-text", text: "无差异" });
-      return;
-    }
-
-    if (totalPages > 1) {
-      const pager = this.diffContentEl.createDiv({ cls: "svn-diff-pager" });
-      const prevBtn = pager.createEl("button", { cls: "svn-btn", text: "上一页" });
-      prevBtn.disabled = this.diffPage <= 1;
-      prevBtn.addEventListener("click", () => {
-        this.diffPage -= 1;
-        this.renderDiff();
-      });
-
-      pager.createDiv({ cls: "svn-helper-text", text: `第 ${this.diffPage} / ${totalPages} 页` });
-
-      const nextBtn = pager.createEl("button", { cls: "svn-btn", text: "下一页" });
-      nextBtn.disabled = this.diffPage >= totalPages;
-      nextBtn.addEventListener("click", () => {
-        this.diffPage += 1;
-        this.renderDiff();
-      });
     }
   }
 
@@ -568,14 +516,6 @@ export class SvnPanelView extends ItemView {
       setIcon(button, icon);
     }
     button.addEventListener("click", onClick);
-  }
-
-  private showDiffPanel(): void {
-    this.diffPanelEl?.removeClass("is-hidden");
-  }
-
-  private hideDiffPanel(): void {
-    this.diffPanelEl?.addClass("is-hidden");
   }
 
   private showUpdateFeedback(): void {
