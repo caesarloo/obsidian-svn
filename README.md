@@ -2,7 +2,9 @@
 
 Obsidian SVN 是一个 Obsidian 桌面端插件，用于在 Obsidian 内管理 SVN 工作副本。
 
-当前稳定版本：`v1.0.0`
+当前稳定版本：`v1.1.0`
+
+最新发布页：https://github.com/caesarloo/obsidian-svn/releases/tag/v1.1.0
 
 ## 1. 安装插件
 
