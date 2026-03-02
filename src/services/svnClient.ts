@@ -238,10 +238,9 @@ export class SvnClient {
     const normalizedDiffLines = this.normalizeDiffLines(diffLines);
     const hasRawChanges = rawDiffLines.some((line) => line.type === "added" || line.type === "deleted");
     const hasNormalizedChanges = normalizedDiffLines.some((line) => line.type === "added" || line.type === "deleted");
-    const finalLines = hasRawChanges && !hasNormalizedChanges ? rawDiffLines : normalizedDiffLines;
 
     if (hasRawChanges && !hasNormalizedChanges) {
-      this.debugLog("[Obsidian SVN] 差异归一化后无变更，回退到原始差异行", {
+      this.debugLog("[Obsidian SVN] 差异归一化后无实质变更，忽略纯格式差异", {
         filePath,
         rawLineCount: rawDiffLines.length,
         normalizedLineCount: normalizedDiffLines.length
@@ -250,7 +249,7 @@ export class SvnClient {
 
     return {
       filePath,
-      lines: finalLines
+      lines: normalizedDiffLines
     };
   }
 
