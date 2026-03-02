@@ -130,7 +130,7 @@ export class SvnClient {
 
   async diff(path: string): Promise<SvnDiff> {
     this.validateInput(path, `文件路径 "${path}"`);
-    const output = await this.run(["diff", path]);
+    const output = await this.runRawUtf8(["diff", path]);
     return this.parseDiffOutput(path, output);
   }
 
@@ -180,41 +180,77 @@ export class SvnClient {
   private parseDiffOutput(filePath: string, output: string): SvnDiff {
     const lines = output.split(/\r?\n/);
     const diffLines: DiffLine[] = [];
+    const rawDiffLines: DiffLine[] = [];
     let currentLineNumber = 1;
+    let inHunk = false;
 
     for (const line of lines) {
-      if (line.startsWith('---') || line.startsWith('+++') || line.startsWith('@@')) {
+      if (line.startsWith('@@')) {
+        inHunk = true;
+        continue;
+      }
+
+      if (line.startsWith('Index: ') || line.startsWith('===')) {
+        inHunk = false;
+        continue;
+      }
+
+      if (line.startsWith('---') || line.startsWith('+++')) {
+        continue;
+      }
+
+      if (!inHunk) {
         continue;
       }
 
       if (line.startsWith('+')) {
-        diffLines.push({
+        const content = this.repairLikelyUtf8Mojibake(line.substring(1));
+        const parsed: DiffLine = {
           lineNumber: currentLineNumber,
-          content: line.substring(1),
+          content,
           type: 'added'
-        });
+        };
+        diffLines.push(parsed);
+        rawDiffLines.push(parsed);
         currentLineNumber++;
       } else if (line.startsWith('-')) {
-        diffLines.push({
+        const content = this.repairLikelyUtf8Mojibake(line.substring(1));
+        const parsed: DiffLine = {
           lineNumber: currentLineNumber,
-          content: line.substring(1),
+          content,
           type: 'deleted'
-        });
+        };
+        diffLines.push(parsed);
+        rawDiffLines.push(parsed);
       } else if (line.startsWith(' ')) {
-        diffLines.push({
+        const content = this.repairLikelyUtf8Mojibake(line.substring(1));
+        const parsed: DiffLine = {
           lineNumber: currentLineNumber,
-          content: line.substring(1),
+          content,
           type: 'unchanged'
-        });
+        };
+        diffLines.push(parsed);
+        rawDiffLines.push(parsed);
         currentLineNumber++;
       }
     }
 
     const normalizedDiffLines = this.normalizeDiffLines(diffLines);
+    const hasRawChanges = rawDiffLines.some((line) => line.type === "added" || line.type === "deleted");
+    const hasNormalizedChanges = normalizedDiffLines.some((line) => line.type === "added" || line.type === "deleted");
+    const finalLines = hasRawChanges && !hasNormalizedChanges ? rawDiffLines : normalizedDiffLines;
+
+    if (hasRawChanges && !hasNormalizedChanges) {
+      this.debugLog("[Obsidian SVN] 差异归一化后无变更，回退到原始差异行", {
+        filePath,
+        rawLineCount: rawDiffLines.length,
+        normalizedLineCount: normalizedDiffLines.length
+      });
+    }
 
     return {
       filePath,
-      lines: normalizedDiffLines
+      lines: finalLines
     };
   }
 
@@ -295,6 +331,33 @@ export class SvnClient {
 
   private normalizeForWhitespaceCompare(content: string): string {
     return content.replace(/\s+/g, "");
+  }
+
+  private repairLikelyUtf8Mojibake(content: string): string {
+    if (!content) {
+      return content;
+    }
+
+    const mojibakeHint = /[\u00C0-\u00FF]{2,}|(?:Ã.|Â.|æ.|ç.|å.|ä.|é.|è.|ï.)/.test(content);
+    if (!mojibakeHint) {
+      return content;
+    }
+
+    const repaired = this.safeRecode(content, "latin1", "utf8");
+    if (!repaired || repaired === content) {
+      return content;
+    }
+
+    const originalCjk = this.countCjk(content);
+    const repairedCjk = this.countCjk(repaired);
+    const originalReplacement = this.countReplacementChars(content);
+    const repairedReplacement = this.countReplacementChars(repaired);
+
+    if (repairedCjk > originalCjk && repairedReplacement <= originalReplacement) {
+      return repaired;
+    }
+
+    return content;
   }
 
   private isMarkdownSeparatorLine(content: string): boolean {
