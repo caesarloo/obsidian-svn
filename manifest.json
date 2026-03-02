@@ -1,10 +1,10 @@
 {
-  "id": "obsidian-svn",
-  "name": "Obsidian SVN",
-  "version": "1.1.0",
+  "id": "vault-svn",
+  "name": "Vault SVN",
+  "version": "1.1.2",
   "minAppVersion": "1.0.0",
-  "description": "在 Obsidian 中管理 SVN 工作副本。",
-  "author": "obsidian-svn",
+  "description": "Manage SVN working copies inside your vault.",
+  "author": "caesarloo",
   "authorUrl": "",
   "isDesktopOnly": true
 }

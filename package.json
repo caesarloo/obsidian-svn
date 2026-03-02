@@ -1,6 +1,6 @@
 {
   "name": "obsidian-svn",
-  "version": "1.1.0",
+  "version": "1.1.2",
   "private": true,
   "description": "Obsidian SVN plugin",
   "main": "dist/main.js",
@@ -8,6 +8,8 @@
     "build": "node esbuild.config.mjs production",
     "dev": "node esbuild.config.mjs",
     "typecheck": "tsc --noEmit",
+    "release:publish": "node scripts/release.mjs",
+    "release:dry-run": "node scripts/release.mjs --dry-run",
     "test": "jest",
     "test:watch": "jest --watch"
   },

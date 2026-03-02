@@ -1,10 +1,16 @@
-# Obsidian SVN 插件使用说明
+# Vault SVN 插件使用说明
 
-Obsidian SVN 是一个 Obsidian 桌面端插件，用于在 Obsidian 内管理 SVN 工作副本。
+Vault SVN 是一个 Obsidian 桌面端插件，用于在库内管理 SVN 工作副本。
 
-当前稳定版本：`v1.1.0`
+当前稳定版本：`1.1.2`
 
-最新发布页：https://github.com/caesarloo/obsidian-svn/releases/tag/v1.1.0
+最新发布页：https://github.com/caesarloo/obsidian-svn/releases/tag/1.1.2
+
+发版模板：`RELEASE_TEMPLATE.md`
+
+一键发版命令：`npm run release:publish -- X.Y.Z`
+
+发版预检查（不发布）：`npm run release:dry-run -- X.Y.Z`
 
 ## 1. 安装插件
 
@@ -13,7 +19,7 @@ Obsidian SVN 是一个 Obsidian 桌面端插件，用于在 Obsidian 内管理 S
 	- `manifest.json`
 	- `styles.css`
 2. 在你的库目录下创建插件目录：
-	- `<Vault>/.obsidian/plugins/obsidian-svn/`
+	- `<Vault>/.obsidian/plugins/vault-svn/`
 3. 将上述 3 个文件放入该目录。
 4. 重启 Obsidian，或在“社区插件”中重新加载插件。
 
