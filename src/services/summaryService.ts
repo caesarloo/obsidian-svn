@@ -9,7 +9,7 @@ const LABELS: Record<SvnStatusEntry["status"], string> = {
   missing: "缺失"
 };
 
-export async function generateSummaryWithFallback(entries: SvnStatusEntry[]): Promise<string> {
+export function generateSummaryWithFallback(entries: SvnStatusEntry[]): string {
   if (!entries.length) {
     return "无变更";
   }
@@ -24,7 +24,7 @@ export async function generateSummaryWithFallback(entries: SvnStatusEntry[]): Pr
   }, {});
 
   // 生成变更说明
-  let summary = "更新了项目文件";
+  const summary = "更新了项目文件";
   
   // 生成文件清单
   const fileList = Object.entries(grouped).map(([status, paths]) => {

@@ -19,8 +19,9 @@ export class SvnDiffView extends ItemView {
     return this.displayText;
   }
 
-  async onOpen(): Promise<void> {
+  onOpen(): Promise<void> {
     this.render();
+    return Promise.resolve();
   }
 
   getState(): Record<string, unknown> {
@@ -30,12 +31,13 @@ export class SvnDiffView extends ItemView {
     };
   }
 
-  async setState(state: unknown): Promise<void> {
+  setState(state: unknown): Promise<void> {
     const value = state as { title?: string } | undefined;
     if (value?.title) {
       this.displayText = value.title;
     }
     this.render();
+    return Promise.resolve();
   }
 
   async setDiff(diff: SvnDiff): Promise<void> {

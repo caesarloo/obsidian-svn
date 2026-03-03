@@ -8,10 +8,12 @@
  */
 export function encryptPassword(password: string): string {
   if (!password) return "";
-  
+
   // 使用简单的 Base64 编码作为示例
   // 实际生产环境中建议使用更安全的加密方法
-  const encoded = btoa(unescape(encodeURIComponent(password)));
+  const bytes = new TextEncoder().encode(password);
+  const binary = String.fromCharCode(...bytes);
+  const encoded = btoa(binary);
   // 添加一个简单的混淆层
   return encoded + '=='.split('').reverse().join('');
 }
@@ -23,12 +25,14 @@ export function encryptPassword(password: string): string {
  */
 export function decryptPassword(encryptedPassword: string): string {
   if (!encryptedPassword) return "";
-  
+
   try {
     // 移除混淆层
     const reversed = encryptedPassword.slice(0, -2);
     // 解码 Base64
-    return decodeURIComponent(escape(atob(reversed)));
+    const binary = atob(reversed);
+    const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+    return new TextDecoder().decode(bytes);
   } catch {
     // 如果解密失败，返回空字符串
     return "";

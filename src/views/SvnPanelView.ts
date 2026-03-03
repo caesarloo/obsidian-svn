@@ -1,4 +1,4 @@
-import { ItemView, Notice, WorkspaceLeaf, setIcon } from "obsidian";
+import { ItemView, Modal, Notice, WorkspaceLeaf, setIcon } from "obsidian";
 import { generateSummaryWithFallback } from "../services/summaryService";
 import { RepositoryConfigModal } from "./RepositoryConfigModal";
 import type { GroupedStatus, ObsidianSvnPlugin, SvnStatusEntry, SvnStatusKind, UpdateResult } from "../types";
@@ -35,7 +35,7 @@ export class SvnPanelView extends ItemView {
   }
 
   getDisplayText(): string {
-    return "Obsidian SVN";
+    return "Obsidian svn";
   }
 
   async onOpen(): Promise<void> {
@@ -193,36 +193,15 @@ export class SvnPanelView extends ItemView {
     root.addClass("svn-plugin-root");
 
     // 加载状态指示器
-    this.loadingEl = root.createDiv({ cls: "svn-loading-overlay" });
-    this.loadingEl.style.position = "fixed";
-    this.loadingEl.style.top = "0";
-    this.loadingEl.style.left = "0";
-    this.loadingEl.style.right = "0";
-    this.loadingEl.style.bottom = "0";
-    this.loadingEl.style.backgroundColor = "var(--background-modifier-cover)";
-    this.loadingEl.style.display = "flex";
-    this.loadingEl.style.alignItems = "center";
-    this.loadingEl.style.justifyContent = "center";
-    this.loadingEl.style.zIndex = "1000";
-    this.loadingEl.style.display = "none";
-    
-    const loadingSpinner = this.loadingEl.createDiv({ cls: "svn-loading-spinner" });
-    loadingSpinner.style.width = "40px";
-    loadingSpinner.style.height = "40px";
-    loadingSpinner.style.border = "4px solid #f3f3f3";
-    loadingSpinner.style.borderTop = "4px solid #3498db";
-    loadingSpinner.style.borderRadius = "50%";
-    loadingSpinner.style.animation = "spin 1s linear infinite";
-    
-    const loadingText = this.loadingEl.createDiv({ cls: "svn-loading-text", text: "加载中..." });
-    loadingText.style.marginLeft = "10px";
-    loadingText.style.fontSize = "14px";
-    loadingText.style.color = "#333";
+    this.loadingEl = root.createDiv({ cls: "svn-loading-overlay is-hidden" });
+
+    this.loadingEl.createDiv({ cls: "svn-loading-spinner" });
+    this.loadingEl.createDiv({ cls: "svn-loading-text", text: "加载中..." });
 
     const appGrid = root.createDiv({ cls: "svn-app-grid" });
 
     const sidePanel = appGrid.createDiv({ cls: "svn-panel" });
-    sidePanel.createDiv({ cls: "svn-brand", text: "OBSIDIAN SVN" });
+    sidePanel.createDiv({ cls: "svn-brand", text: "Obsidian SVN" });
     sidePanel.createDiv({ cls: "svn-section-title", text: "快速操作" });
     const actionGrid = sidePanel.createDiv({ cls: "svn-actions-grid" });
 
@@ -267,9 +246,7 @@ export class SvnPanelView extends ItemView {
     }
 
     this.statusTreeEl.empty();
-    this.statusTreeEl.addClass("svn-virtual-scroll");
-    this.statusTreeEl.style.maxHeight = "460px";
-    this.statusTreeEl.style.overflowY = "auto";
+    this.statusTreeEl.addClass("svn-status-tree-scroll");
 
     const grouped = this.groupEntries(this.entries);
 
@@ -402,10 +379,21 @@ export class SvnPanelView extends ItemView {
   }
 
   private async revertFolder(folder: string, entries: SvnStatusEntry[]): Promise<void> {
-    if (!confirm(`确认递归还原文件夹 ${folder} 下的变更吗？`)) {
+    const confirmed = await this.openConfirmModal(
+      "确认还原",
+      `确认递归还原文件夹 ${folder} 下的变更吗？`,
+      "继续"
+    );
+    if (!confirmed) {
       return;
     }
-    if (!confirm("该操作不可撤销，请再次确认。")) {
+
+    const finalConfirmed = await this.openConfirmModal(
+      "二次确认",
+      "该操作不可撤销，请再次确认。",
+      "确认还原"
+    );
+    if (!finalConfirmed) {
       return;
     }
 
@@ -532,14 +520,47 @@ export class SvnPanelView extends ItemView {
       if (loadingText) {
         loadingText.textContent = text;
       }
-      this.loadingEl.style.display = "flex";
+      this.loadingEl.removeClass("is-hidden");
     }
   }
 
   private hideLoading(): void {
     if (this.loadingEl) {
-      this.loadingEl.style.display = "none";
+      this.loadingEl.addClass("is-hidden");
     }
+  }
+
+  private async openConfirmModal(title: string, message: string, confirmText: string): Promise<boolean> {
+    return await new Promise((resolve) => {
+      const modal = new Modal(this.app);
+      let resolved = false;
+
+      modal.titleEl.setText(title);
+      modal.contentEl.createDiv({ cls: "svn-helper-text", text: message });
+
+      const actionRow = modal.contentEl.createDiv({ cls: "svn-modal-actions" });
+      const cancelBtn = actionRow.createEl("button", { cls: "svn-btn", text: "取消" });
+      cancelBtn.addEventListener("click", () => {
+        resolved = true;
+        resolve(false);
+        modal.close();
+      });
+
+      const confirmBtn = actionRow.createEl("button", { cls: "svn-btn is-primary", text: confirmText });
+      confirmBtn.addEventListener("click", () => {
+        resolved = true;
+        resolve(true);
+        modal.close();
+      });
+
+      modal.onClose = () => {
+        if (!resolved) {
+          resolve(false);
+        }
+      };
+
+      modal.open();
+    });
   }
 }
 

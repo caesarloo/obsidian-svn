@@ -1,13 +1,11 @@
 import {
-  App,
   Notice,
   Plugin,
   TFile,
   WorkspaceLeaf
 } from "obsidian";
 import { SvnClient } from "./services/svnClient";
-import { generateSummaryWithFallback } from "./services/summaryService";
-import { encryptPassword, decryptPassword } from "./services/cryptoService";
+import { decryptPassword } from "./services/cryptoService";
 import { SvnPanelView } from "./views/SvnPanelView";
 import { SvnDiffView } from "./views/SvnDiffView";
 import { RepositoryConfigModal } from "./views/RepositoryConfigModal";
@@ -42,19 +40,19 @@ export default class ObsidianSvnPlugin extends Plugin {
     this.registerView(VIEW_TYPE_SVN_PANEL, (leaf) => new SvnPanelView(leaf, this));
     this.registerView(VIEW_TYPE_SVN_DIFF, (leaf) => new SvnDiffView(leaf));
 
-    this.addRibbonIcon("git-pull-request-arrow", "Open Obsidian SVN", () => {
+    this.addRibbonIcon("git-pull-request-arrow", "打开 svn 面板", () => {
       void this.activateView();
     });
 
     this.addCommand({
       id: "open-panel",
-      name: "打开 SVN 面板",
+      name: "打开 svn 面板",
       callback: () => void this.activateView()
     });
 
     this.addCommand({
       id: "refresh-status",
-      name: "刷新 SVN 状态",
+      name: "刷新 svn 状态",
       callback: () => void this.withView((view) => view.refreshStatus(true))
     });
 
@@ -84,13 +82,13 @@ export default class ObsidianSvnPlugin extends Plugin {
 
     this.addCommand({
       id: "add-active-file",
-      name: "添加当前文件到 SVN",
+      name: "添加当前文件到 svn",
       checkCallback: (checking) => this.withActiveFile(checking, (path) => this.runSingleFileAction("add", path))
     });
 
     this.addCommand({
       id: "delete-active-file",
-      name: "从 SVN 删除当前文件",
+      name: "从 svn 删除当前文件",
       checkCallback: (checking) => this.withActiveFile(checking, (path) => this.runSingleFileAction("delete", path))
     });
 
@@ -108,8 +106,6 @@ export default class ObsidianSvnPlugin extends Plugin {
 
   onunload(): void {
     this.diffLeaf = null;
-    this.app.workspace.detachLeavesOfType(VIEW_TYPE_SVN_PANEL);
-    this.app.workspace.detachLeavesOfType(VIEW_TYPE_SVN_DIFF);
   }
 
   async loadSettings(): Promise<void> {

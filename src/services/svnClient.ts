@@ -7,6 +7,7 @@ import iconv from "iconv-lite";
 import type { SvnCredentials, SvnStatusEntry, SvnStatusKind, SvnDiff, UpdateResult, UpdateEntry, DiffLine } from "../types";
 
 const execFileAsync = promisify(execFile);
+type SupportedEncoding = "utf8" | "gbk" | "gb18030" | "latin1";
 
 export class SvnClient {
   constructor(
@@ -73,7 +74,7 @@ export class SvnClient {
           continue;
         }
         console.error('[Obsidian SVN] 命令执行失败 (raw utf8)', { binary, args: safeArgs, code: err.code, message: err.message });
-        const message = (err as any).message || 'SVN 命令执行失败';
+        const message = err.message || 'SVN 命令执行失败';
         throw new Error(message);
       }
     }
@@ -137,7 +138,7 @@ export class SvnClient {
   private parseUpdateOutput(output: string): UpdateResult {
     const lines = output.split(/\r?\n/).filter(Boolean);
     const entries: UpdateEntry[] = [];
-    let summary = {
+    const summary = {
       total: 0,
       added: 0,
       modified: 0,
@@ -671,8 +672,7 @@ export class SvnClient {
       throw new Error("输入验证失败：提交备注包含非法字符");
     }
 
-    const invalidControl = /[\u0001-\u0008\u000B\u000C\u000E-\u001F]/;
-    if (invalidControl.test(message)) {
+    if (this.hasInvalidControlChars(message, false)) {
       this.debugLog("[Obsidian SVN] 提交备注校验拦截", {
         reason: "包含非法控制字符",
         messageLength: message.length,
@@ -731,7 +731,7 @@ export class SvnClient {
 
     // 优先 replacementCount 最低的候选，再在这些候选中按 cjkCount 降序选择
     const minReplacement = Math.min(...uniqueCandidates.map(c => c.replacementCount));
-    let filtered = uniqueCandidates.filter(c => c.replacementCount === minReplacement);
+    const filtered = uniqueCandidates.filter(c => c.replacementCount === minReplacement);
     filtered.sort((a, b) => b.cjkCount - a.cjkCount || a.score - b.score);
     // 如果候选集中包含 utf8，则优先选择 utf8（在替换字符相同的已筛选集合中）
     const utf8Preferred = filtered.find(c => c.source === 'utf8');
@@ -742,7 +742,7 @@ export class SvnClient {
     // 若最佳结果仍有 mojibake 或替换字符，进行全缓冲区修复尝试（跨多种编码组合）
     const repairedReplacementCount = this.countReplacementChars(repaired.text);
     if (this.hasMojibakeHint(repaired.text) || repairedReplacementCount > 0) {
-      const pool: Array<{ name: string; text: string }> = [
+      const pool: Array<{ name: SupportedEncoding; text: string }> = [
         { name: 'utf8', text: utf8 },
         { name: 'gbk', text: gbk },
         { name: 'gb18030', text: gb18030 },
@@ -758,7 +758,7 @@ export class SvnClient {
         for (const to of pool) {
           if (from.name === to.name) continue;
           try {
-            const t = this.safeRecode(from.text, from.name as any, to.name as any);
+            const t = this.safeRecode(from.text, from.name, to.name);
             fullCandidates.push({ source: `${from.name}->${to.name}`, text: t, replacement: this.countReplacementChars(t), score: this.getDecodeScore(t), cjk: this.countCjk(t) });
           } catch {
             // ignore
@@ -780,7 +780,7 @@ export class SvnClient {
     }
 
     // include raw buffer hex sample for debugging
-    const rawHexSample = (input as Buffer).slice(0, 120).toString('hex');
+    const rawHexSample = (input as Buffer).subarray(0, 120).toString('hex');
 
     this.debugLog("[Obsidian SVN] 编码解码来源", {
       selectedSource: best.source,
@@ -813,14 +813,14 @@ export class SvnClient {
         return line;
       }
 
-      const attempts = [
+      const attempts: Array<{ from: SupportedEncoding; to: SupportedEncoding }> = [
         { from: 'gbk', to: 'utf8' },
         { from: 'gb18030', to: 'utf8' },
         { from: 'latin1', to: 'utf8' }
       ];
 
       const candidates = attempts.map((a) => {
-        const text = this.safeRecode(line, a.from as any, a.to as any);
+        const text = this.safeRecode(line, a.from, a.to);
         return {
           text,
           from: a.from,
@@ -832,7 +832,7 @@ export class SvnClient {
       });
 
       // include original as candidate too for fair comparison
-      candidates.push({ text: line, from: 'original', to: 'original', score: this.getDecodeScore(line), cjk: this.countCjk(line), replacement: this.countReplacementChars(line) });
+      candidates.push({ text: line, from: 'utf8', to: 'utf8', score: this.getDecodeScore(line), cjk: this.countCjk(line), replacement: this.countReplacementChars(line) });
 
       // choose candidate with minimal score; tie-breaker: maximal cjk, minimal replacement
       candidates.sort((a, b) => {
@@ -873,9 +873,28 @@ export class SvnClient {
 
   private getDecodeScore(text: string): number {
     const replacementCount = this.countReplacementChars(text);
-    const controlCount = (text.match(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g) ?? []).length;
+    const controlCount = this.countInvalidControlChars(text, true);
     const mojibakeHints = (text.match(/[ÃÂÐÊÔ鍙鍚鍏闇璇璐锛锟閭闂]/g) ?? []).length;
     return replacementCount * 20 + controlCount * 5 + mojibakeHints * 3;
+  }
+
+  private hasInvalidControlChars(text: string, includeNull: boolean): boolean {
+    return this.countInvalidControlChars(text, includeNull) > 0;
+  }
+
+  private countInvalidControlChars(text: string, includeNull: boolean): number {
+    let count = 0;
+    for (const ch of text) {
+      const code = ch.charCodeAt(0);
+      if (code === 0 && includeNull) {
+        count += 1;
+        continue;
+      }
+      if ((code >= 1 && code <= 8) || code === 11 || code === 12 || (code >= 14 && code <= 31)) {
+        count += 1;
+      }
+    }
+    return count;
   }
 
   private countReplacementChars(text: string): number {

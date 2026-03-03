@@ -12,7 +12,7 @@ export class RepositoryConfigModal extends Modal {
     contentEl.empty();
     contentEl.addClass("svn-modal");
 
-    contentEl.createEl("h3", { text: "仓库配置" });
+    new Setting(contentEl).setName("仓库配置").setHeading();
 
     const binaryInput = this.createBinaryField(contentEl, this.plugin.settings.svnBinaryPath);
     const userInput = this.createField(contentEl, "用户名", this.plugin.settings.username);
@@ -34,28 +34,8 @@ export class RepositoryConfigModal extends Modal {
     cancelBtn.addEventListener("click", () => this.close());
 
     const saveBtn = actionRow.createEl("button", { cls: "svn-btn is-primary", text: "保存" });
-    saveBtn.addEventListener("click", async () => {
-      const binaryValue = binaryInput.value.trim() || "svn";
-      if (/tortoiseproc\.exe$/i.test(binaryValue.replace(/\\/g, "/"))) {
-        new Notice("TortoiseProc.exe 不是 svn 命令行工具，请选择 svn.exe。若安装 TortoiseSVN，请勾选\"Command line client tools\"组件。");
-        return;
-      }
-
-      this.plugin.settings.svnBinaryPath = binaryValue;
-      this.plugin.settings.username = userInput.value.trim();
-
-      const password = passwordInput.value;
-      if (this.plugin.settings.persistPassword) {
-        this.plugin.settings.savedPassword = encryptPassword(password);
-        this.plugin.setSessionPassword("");
-      } else {
-        this.plugin.settings.savedPassword = "";
-        this.plugin.setSessionPassword(password);
-      }
-
-      await this.plugin.saveSettings();
-      new Notice("仓库配置已保存");
-      this.close();
+    saveBtn.addEventListener("click", () => {
+      void this.handleSave(binaryInput, userInput, passwordInput);
     });
   }
 
@@ -72,7 +52,7 @@ export class RepositoryConfigModal extends Modal {
 
   private createBinaryField(parent: HTMLElement, value: string): HTMLInputElement {
     const wrapper = parent.createDiv({ cls: "svn-field" });
-    wrapper.createEl("label", { text: "SVN 可执行文件" });
+    wrapper.createEl("label", { text: "Svn 可执行文件" });
 
     const row = wrapper.createDiv({ cls: "svn-field-row" });
     const input = row.createEl("input", {
@@ -89,16 +69,11 @@ export class RepositoryConfigModal extends Modal {
         accept: ".exe"
       }
     });
-    picker.style.display = "none";
+    picker.addClass("svn-hidden-input");
 
     const pickBtn = row.createEl("button", { cls: "svn-btn", text: "选择文件" });
-    pickBtn.addEventListener("click", async () => {
-      const selected = await this.pickExecutablePathWithElectron();
-      if (selected) {
-        input.value = selected;
-        return;
-      }
-      picker.click();
+    pickBtn.addEventListener("click", () => {
+      void this.handlePickExecutable(input, picker);
     });
 
     picker.addEventListener("change", () => {
@@ -120,6 +95,39 @@ export class RepositoryConfigModal extends Modal {
     });
 
     return input;
+  }
+
+  private async handleSave(binaryInput: HTMLInputElement, userInput: HTMLInputElement, passwordInput: HTMLInputElement): Promise<void> {
+    const binaryValue = binaryInput.value.trim() || "svn";
+    if (/tortoiseproc\.exe$/i.test(binaryValue.replace(/\\/g, "/"))) {
+      new Notice("所选程序不是 svn 命令行工具，请选择 svn.exe。若安装 tortoisesvn，请勾选\"command line client tools\"组件。");
+      return;
+    }
+
+    this.plugin.settings.svnBinaryPath = binaryValue;
+    this.plugin.settings.username = userInput.value.trim();
+
+    const password = passwordInput.value;
+    if (this.plugin.settings.persistPassword) {
+      this.plugin.settings.savedPassword = encryptPassword(password);
+      this.plugin.setSessionPassword("");
+    } else {
+      this.plugin.settings.savedPassword = "";
+      this.plugin.setSessionPassword(password);
+    }
+
+    await this.plugin.saveSettings();
+    new Notice("仓库配置已保存");
+    this.close();
+  }
+
+  private async handlePickExecutable(input: HTMLInputElement, picker: HTMLInputElement): Promise<void> {
+    const selected = await this.pickExecutablePathWithElectron();
+    if (selected) {
+      input.value = selected;
+      return;
+    }
+    picker.click();
   }
 
   private async pickExecutablePathWithElectron(): Promise<string | null> {
