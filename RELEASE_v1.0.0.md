@@ -1,4 +1,4 @@
-# Obsidian SVN v1.0.0
+# Vault SVN v1.0.0
 
 首个稳定版本发布，提供 Obsidian 桌面端 SVN 工作副本管理能力。
 

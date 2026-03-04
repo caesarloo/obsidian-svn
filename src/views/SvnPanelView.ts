@@ -1,6 +1,5 @@
 import { ItemView, Modal, Notice, WorkspaceLeaf, setIcon } from "obsidian";
 import { generateSummaryWithFallback } from "../services/summaryService";
-import { RepositoryConfigModal } from "./RepositoryConfigModal";
 import type { GroupedStatus, ObsidianSvnPlugin, SvnStatusEntry, SvnStatusKind, UpdateResult } from "../types";
 
 const STATUS_LABELS: Record<SvnStatusKind, string> = {
@@ -18,6 +17,8 @@ export class SvnPanelView extends ItemView {
   private collapsedFolders = new Set<string>();
   private commitMessage = "";
   private updateResult: UpdateResult | null = null;
+  private autoRefreshTimer: number | null = null;
+  private autoRefreshInProgress = false;
 
   private statusTreeEl: HTMLDivElement | null = null;
   private commitInputEl: HTMLTextAreaElement | null = null;
@@ -35,18 +36,31 @@ export class SvnPanelView extends ItemView {
   }
 
   getDisplayText(): string {
-    return "Obsidian svn";
+    return "Vault svn";
+  }
+
+  getIcon(): string {
+    return "vault-svn";
   }
 
   async onOpen(): Promise<void> {
     this.renderLayout();
+    this.configureAutoRefresh();
     await this.refreshStatus(false);
+  }
+
+  async onClose(): Promise<void> {
+    this.clearAutoRefreshTimer();
+  }
+
+  updateAutoRefreshTimer(): void {
+    this.configureAutoRefresh();
   }
 
   async refreshStatus(showNotice: boolean): Promise<void> {
     try {
       this.showLoading("刷新状态中...");
-      this.plugin.debugLog("[Obsidian SVN] 开始刷新状态", { showNotice });
+      this.plugin.debugLog("[Vault SVN] 开始刷新状态", { showNotice });
       const client = this.plugin.getSvnClient();
       await client.ensureAvailable();
       const entries = await client.status();
@@ -58,13 +72,13 @@ export class SvnPanelView extends ItemView {
       });
       this.renderStatusTree();
       this.renderConflicts();
-      this.plugin.debugLog("[Obsidian SVN] 刷新状态成功", { entryCount: entries.length });
+      this.plugin.debugLog("[Vault SVN] 刷新状态成功", { entryCount: entries.length });
       if (showNotice) {
         new Notice(`状态已刷新，共 ${entries.length} 项变更`);
       }
     } catch (error) {
       const err = error as Error;
-      console.error("[Obsidian SVN] 刷新状态失败", {
+      console.error("[Vault SVN] 刷新状态失败", {
         message: err.message,
         stack: err.stack,
         error
@@ -78,11 +92,11 @@ export class SvnPanelView extends ItemView {
   async updateWorkingCopy(): Promise<void> {
     try {
       this.showLoading("更新工作副本中...");
-      this.plugin.debugLog("[Obsidian SVN] 开始更新工作副本");
+      this.plugin.debugLog("[Vault SVN] 开始更新工作副本");
       const client = this.plugin.getSvnClient();
       const result = await client.update();
       this.updateResult = result;
-      this.plugin.debugLog("[Obsidian SVN] 更新工作副本成功", {
+      this.plugin.debugLog("[Vault SVN] 更新工作副本成功", {
         entryCount: result.entries.length,
         summary: result.summary
       });
@@ -95,7 +109,7 @@ export class SvnPanelView extends ItemView {
       }
     } catch (error) {
       const err = error as Error;
-      console.error("[Obsidian SVN] 更新工作副本失败", {
+      console.error("[Vault SVN] 更新工作副本失败", {
         message: err.message,
         stack: err.stack,
         error
@@ -141,7 +155,7 @@ export class SvnPanelView extends ItemView {
       this.showLoading("提交中...");
       const client = this.plugin.getSvnClient();
       const map = new Map(this.entries.map((entry) => [entry.path, entry]));
-      this.plugin.debugLog("[Obsidian SVN] 开始提交", {
+      this.plugin.debugLog("[Vault SVN] 开始提交", {
         stagedCount: stagedPaths.length,
         stagedPaths,
         messageLength: message.length,
@@ -150,18 +164,18 @@ export class SvnPanelView extends ItemView {
 
       const untracked = stagedPaths.filter((path) => map.get(path)?.status === "untracked");
       if (untracked.length) {
-        this.plugin.debugLog("[Obsidian SVN] 提交前自动 add", { untracked });
+        this.plugin.debugLog("[Vault SVN] 提交前自动 add", { untracked });
         await client.add(untracked);
       }
 
       const missing = stagedPaths.filter((path) => map.get(path)?.status === "missing");
       if (missing.length) {
-        this.plugin.debugLog("[Obsidian SVN] 提交前自动 delete", { missing });
+        this.plugin.debugLog("[Vault SVN] 提交前自动 delete", { missing });
         await client.delete(missing);
       }
 
       const commitOutput = await client.commit(stagedPaths, message);
-      this.plugin.debugLog("[Obsidian SVN] 提交成功", {
+      this.plugin.debugLog("[Vault SVN] 提交成功", {
         stagedCount: stagedPaths.length,
         outputSample: commitOutput.slice(0, 500)
       });
@@ -176,7 +190,7 @@ export class SvnPanelView extends ItemView {
         new Notice("提交后检测到冲突，请先处理冲突。");
       }
     } catch (error) {
-      this.plugin.debugLog("[Obsidian SVN] 提交失败", {
+      this.plugin.debugLog("[Vault SVN] 提交失败", {
         message: (error as Error).message,
         stagedCount: stagedPaths.length,
         stagedPaths
@@ -201,7 +215,7 @@ export class SvnPanelView extends ItemView {
     const appGrid = root.createDiv({ cls: "svn-app-grid" });
 
     const sidePanel = appGrid.createDiv({ cls: "svn-panel" });
-    sidePanel.createDiv({ cls: "svn-brand", text: "Obsidian SVN" });
+    sidePanel.createDiv({ cls: "svn-brand", text: "Vault SVN" });
     sidePanel.createDiv({ cls: "svn-section-title", text: "快速操作" });
     const actionGrid = sidePanel.createDiv({ cls: "svn-actions-grid" });
 
@@ -209,7 +223,6 @@ export class SvnPanelView extends ItemView {
     this.createIconButton(actionGrid, "refresh-cw", "刷新", () => void this.refreshStatus(true));
     this.createIconButton(actionGrid, "sparkles", "生成摘要", () => void this.generateSummary());
     this.createIconButton(actionGrid, "upload", "提交变更", () => void this.submitCommit());
-    this.createIconButton(actionGrid, "settings", "设置", () => new RepositoryConfigModal(this.app, this.plugin).open());
 
     const contentPanel = appGrid.createDiv({ cls: "svn-panel" });
     contentPanel.createDiv({ cls: "svn-section-title", text: "提交" });
@@ -238,6 +251,34 @@ export class SvnPanelView extends ItemView {
     updateClose.addEventListener("click", () => this.hideUpdateFeedback());
     this.updateContentEl = this.updateFeedbackEl.createDiv({ cls: "svn-update-content" });
     this.updateContentEl.createDiv({ cls: "svn-helper-text", text: "更新完成后显示更新文件列表" });
+  }
+
+  private configureAutoRefresh(): void {
+    this.clearAutoRefreshTimer();
+
+    const intervalSeconds = this.plugin.settings.autoRefreshInterval;
+    if (!intervalSeconds || intervalSeconds <= 0) {
+      return;
+    }
+
+    this.autoRefreshTimer = window.setInterval(() => {
+      if (this.autoRefreshInProgress) {
+        return;
+      }
+
+      this.autoRefreshInProgress = true;
+      void this.refreshStatus(false).finally(() => {
+        this.autoRefreshInProgress = false;
+      });
+    }, intervalSeconds * 1000);
+  }
+
+  private clearAutoRefreshTimer(): void {
+    if (this.autoRefreshTimer === null) {
+      return;
+    }
+    window.clearInterval(this.autoRefreshTimer);
+    this.autoRefreshTimer = null;
   }
 
   private renderStatusTree(): void {
@@ -440,11 +481,11 @@ export class SvnPanelView extends ItemView {
     }
   }
 
-  private async showFileDiff(path: string, keepUpdatePanel = false): Promise<void> {
+  private async showFileDiff(path: string, keepUpdatePanel = false, compareWithPrevious = false): Promise<void> {
     try {
       this.showLoading("获取文件差异中...");
       const client = this.plugin.getSvnClient();
-      const diff = await client.diff(path);
+      const diff = await client.diff(path, compareWithPrevious);
       await this.plugin.openDiffInEditor(diff);
       if (!keepUpdatePanel) {
         this.hideUpdateFeedback();
@@ -476,7 +517,7 @@ export class SvnPanelView extends ItemView {
         text: entry.path,
         attr: { "aria-label": `查看差异：${entry.path}` }
       });
-      fileLabel.addEventListener("click", () => void this.showFileDiff(entry.path, true));
+      fileLabel.addEventListener("click", () => void this.showFileDiff(entry.path, true, true));
       entryEl.createSpan({ cls: `svn-tag svn-tag-${entry.status}`, text: STATUS_LABELS[entry.status as SvnStatusKind] || entry.status });
     });
 

@@ -1,4 +1,4 @@
-# Obsidian SVN 插件 v1.1.0 发布说明
+# Vault SVN 插件 v1.1.0 发布说明
 
 ## 发布日期
 2026-03-02
@@ -37,7 +37,7 @@
 1. 下载发布附件
 2. 将附件中的文件复制到 Obsidian 插件目录 `obsidian-svn` 文件夹
 3. 重启 Obsidian 或在社区插件页面重新加载插件
-4. 在 Obsidian 设置中启用 "Obsidian SVN" 插件
+4. 在 Obsidian 设置中启用 "Vault SVN" 插件
 
 ## 兼容性
 

@@ -5,7 +5,7 @@ export class SvnDiffView extends ItemView {
   private currentDiff: SvnDiff | null = null;
   private currentPage = 1;
   private readonly pageSize = 400;
-  private displayText = "SVN 文件差异";
+  private displayText = "Vault SVN 文件差异";
 
   constructor(leaf: WorkspaceLeaf) {
     super(leaf);
@@ -44,7 +44,8 @@ export class SvnDiffView extends ItemView {
     this.currentDiff = diff;
     this.currentPage = 1;
     const fileName = diff.filePath.split("/").pop() || diff.filePath;
-    this.displayText = `SVN 差异 · ${fileName}`;
+    const modeLabel = diff.compareMode === "previous-revision" ? "历史对比" : "本地对比";
+    this.displayText = `Vault SVN 差异 · ${modeLabel} · ${fileName}`;
     await this.syncLeafState();
     this.render();
   }
@@ -67,11 +68,12 @@ export class SvnDiffView extends ItemView {
     root.addClass("svn-diff-view-root");
 
     const header = root.createDiv({ cls: "svn-diff-view-header" });
-    header.createDiv({ cls: "svn-diff-view-title", text: this.currentDiff ? `文件差异 - ${this.currentDiff.filePath}` : "文件差异" });
+    const modeLabel = this.currentDiff?.compareMode === "previous-revision" ? "历史对比" : "本地对比";
+    header.createDiv({ cls: "svn-diff-view-title", text: this.currentDiff ? `文件差异（${modeLabel}）- ${this.currentDiff.filePath}` : "文件差异" });
 
     const content = root.createDiv({ cls: "svn-diff-view-content" });
     if (!this.currentDiff) {
-      content.createDiv({ cls: "svn-helper-text", text: "在 SVN 侧边栏点击文件名查看差异。" });
+      content.createDiv({ cls: "svn-helper-text", text: "在 Vault SVN 侧边栏点击文件名查看差异。" });
       return;
     }
 

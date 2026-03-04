@@ -18,9 +18,6 @@ export interface GroupedStatus {
 export interface ObsidianSvnSettings {
   svnBinaryPath: string;
   workingCopyPath: string;
-  username: string;
-  persistPassword: boolean;
-  savedPassword: string;
   enableDebugLog: boolean;
   debugLogMigratedToDefaultOff: boolean;
   autoRefreshInterval: number; // 自动刷新间隔（秒）
@@ -30,19 +27,13 @@ export interface ObsidianSvnSettings {
   defaultExpandFolders: boolean; // 文件树默认展开状态
 }
 
-export interface SvnCredentials {
-  username: string;
-  password: string;
-}
-
 // 插件类型定义
 export interface ObsidianSvnPlugin extends Plugin {
   settings: ObsidianSvnSettings;
   getSvnClient(): SvnClient;
   debugLog(message: string, details?: unknown): void;
-  setSessionPassword(password: string): void;
-  getSessionPassword(): string;
   openDiffInEditor(diff: SvnDiff): Promise<void>;
+  syncAutoRefreshInterval(): Promise<void>;
   saveSettings(): Promise<void>;
 }
 
@@ -56,6 +47,7 @@ export interface DiffLine {
 export interface SvnDiff {
   filePath: string;
   lines: DiffLine[];
+  compareMode?: "working-copy" | "previous-revision";
 }
 
 // 更新反馈相关类型

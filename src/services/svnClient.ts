@@ -4,7 +4,7 @@ import { access } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 import iconv from "iconv-lite";
-import type { SvnCredentials, SvnStatusEntry, SvnStatusKind, SvnDiff, UpdateResult, UpdateEntry, DiffLine } from "../types";
+import type { SvnStatusEntry, SvnStatusKind, SvnDiff, UpdateResult, UpdateEntry, DiffLine } from "../types";
 
 const execFileAsync = promisify(execFile);
 type SupportedEncoding = "utf8" | "gbk" | "gb18030" | "latin1";
@@ -13,7 +13,6 @@ export class SvnClient {
   constructor(
     private readonly svnBinaryPath: string,
     private readonly workingCopyPath: string,
-    private readonly credentials?: SvnCredentials,
     private readonly enableDebugLog = true
   ) {}
 
@@ -42,20 +41,12 @@ export class SvnClient {
 
   private async runRawUtf8(args: string[]): Promise<string> {
     const finalArgs = [...args];
-    if (this.credentials?.username?.trim()) {
-      finalArgs.push("--username", this.credentials.username.trim());
-    }
-    if (this.credentials?.password?.trim()) {
-      finalArgs.push("--password", this.credentials.password.trim());
-      finalArgs.push("--non-interactive");
-      finalArgs.push("--trust-server-cert-failures", "unknown-ca,cn-mismatch,expired,not-yet-valid,other");
-    }
 
     const binaries = await this.resolveBinaryCandidates();
     const safeArgs = this.maskSensitiveArgs(finalArgs);
 
     for (const binary of binaries) {
-      this.debugLog("[Obsidian SVN] 执行命令 (raw utf8)", { binary, args: safeArgs, cwd: this.workingCopyPath });
+      this.debugLog("[Vault SVN] 执行命令 (raw utf8)", { binary, args: safeArgs, cwd: this.workingCopyPath });
       try {
         const { stdout } = await execFileAsync(binary, finalArgs, {
           cwd: this.workingCopyPath,
@@ -65,15 +56,15 @@ export class SvnClient {
         });
         // 明确按 UTF-8 解码，不通过 repair 流程，避免 xml 标签被错误替换
         const text = iconv.decode(stdout as Buffer, 'utf8');
-        this.debugLog("[Obsidian SVN] 命令执行成功 (raw utf8)", { binary, args: safeArgs, stdoutLength: text.length });
+        this.debugLog("[Vault SVN] 命令执行成功 (raw utf8)", { binary, args: safeArgs, stdoutLength: text.length });
         return text;
       } catch (error) {
         const err = error as Error & { code?: string | number; stderr?: Buffer | string };
         if (err.code === 'ENOENT') {
-          console.warn('[Obsidian SVN] svn 可执行文件未找到 (raw utf8)，尝试下一个候选', { binary, args: safeArgs, message: err.message });
+          console.warn('[Vault SVN] svn 可执行文件未找到 (raw utf8)，尝试下一个候选', { binary, args: safeArgs, message: err.message });
           continue;
         }
-        console.error('[Obsidian SVN] 命令执行失败 (raw utf8)', { binary, args: safeArgs, code: err.code, message: err.message });
+        console.error('[Vault SVN] 命令执行失败 (raw utf8)', { binary, args: safeArgs, code: err.code, message: err.message });
         const message = err.message || 'SVN 命令执行失败';
         throw new Error(message);
       }
@@ -129,10 +120,21 @@ export class SvnClient {
     return this.parseUpdateOutput(output);
   }
 
-  async diff(path: string): Promise<SvnDiff> {
+  async diff(path: string, compareWithPrevious = false): Promise<SvnDiff> {
     this.validateInput(path, `文件路径 "${path}"`);
-    const output = await this.runRawUtf8(["diff", path]);
-    return this.parseDiffOutput(path, output);
+
+    let output = "";
+    if (compareWithPrevious) {
+      try {
+        output = await this.runRawUtf8(["diff", "-r", "PREV:COMMITTED", path]);
+      } catch {
+        output = await this.runRawUtf8(["diff", "-r", "0:COMMITTED", path]);
+      }
+    } else {
+      output = await this.runRawUtf8(["diff", path]);
+    }
+
+    return this.parseDiffOutput(path, output, compareWithPrevious ? "previous-revision" : "working-copy");
   }
 
   private parseUpdateOutput(output: string): UpdateResult {
@@ -178,7 +180,7 @@ export class SvnClient {
     return { entries, summary };
   }
 
-  private parseDiffOutput(filePath: string, output: string): SvnDiff {
+  private parseDiffOutput(filePath: string, output: string, compareMode: "working-copy" | "previous-revision"): SvnDiff {
     const lines = output.split(/\r?\n/);
     const diffLines: DiffLine[] = [];
     const rawDiffLines: DiffLine[] = [];
@@ -241,7 +243,7 @@ export class SvnClient {
     const hasNormalizedChanges = normalizedDiffLines.some((line) => line.type === "added" || line.type === "deleted");
 
     if (hasRawChanges && !hasNormalizedChanges) {
-      this.debugLog("[Obsidian SVN] 差异归一化后无实质变更，忽略纯格式差异", {
+      this.debugLog("[Vault SVN] 差异归一化后无实质变更，忽略纯格式差异", {
         filePath,
         rawLineCount: rawDiffLines.length,
         normalizedLineCount: normalizedDiffLines.length
@@ -250,7 +252,8 @@ export class SvnClient {
 
     return {
       filePath,
-      lines: normalizedDiffLines
+      lines: normalizedDiffLines,
+      compareMode
     };
   }
 
@@ -413,7 +416,7 @@ export class SvnClient {
     if (!message.trim()) {
       throw new Error("提交备注不能为空。");
     }
-    this.debugLog("[Obsidian SVN] 提交校验开始", {
+    this.debugLog("[Vault SVN] 提交校验开始", {
       stagedCount: paths.length,
       messageLength: message.length,
       messagePreview: message.slice(0, 120)
@@ -422,12 +425,12 @@ export class SvnClient {
     try {
       this.validatePaths(paths);
       this.validateCommitMessage(message);
-      this.debugLog("[Obsidian SVN] 提交校验通过", {
+      this.debugLog("[Vault SVN] 提交校验通过", {
         stagedCount: paths.length,
         messageLength: message.length
       });
     } catch (error) {
-      this.debugLog("[Obsidian SVN] 提交校验失败", {
+      this.debugLog("[Vault SVN] 提交校验失败", {
         stagedCount: paths.length,
         messageLength: message.length,
         reason: (error as Error).message
@@ -435,7 +438,7 @@ export class SvnClient {
       throw error;
     }
 
-    this.debugLog("[Obsidian SVN] 提交参数", {
+    this.debugLog("[Vault SVN] 提交参数", {
       stagedCount: paths.length,
       stagedPaths: paths,
       messageLength: message.length,
@@ -566,7 +569,7 @@ export class SvnClient {
       return null;
     }
 
-    this.debugLog("[Obsidian SVN] 解析状态行", { line, code, pathPart, pathPartLength: pathPart.length });
+    this.debugLog("[Vault SVN] 解析状态行", { line, code, pathPart, pathPartLength: pathPart.length });
 
     // 若 pathPart 可能含有 mojibake，则尝试修复单行路径（降低乱码文件名出现概率）
     let repairedPathPart = pathPart;
@@ -594,7 +597,7 @@ export class SvnClient {
         repairedPathPart = best;
       }
       if (repairedPathPart !== pathPart) {
-        this.debugLog('[Obsidian SVN] 解析状态行 - 路径修复', { original: pathPart, repaired: repairedPathPart });
+        this.debugLog('[Vault SVN] 解析状态行 - 路径修复', { original: pathPart, repaired: repairedPathPart });
       }
     }
 
@@ -603,7 +606,7 @@ export class SvnClient {
     const fileName = splitIndex >= 0 ? normalizedPath.slice(splitIndex + 1) : normalizedPath;
     const folderPath = splitIndex >= 0 ? normalizedPath.slice(0, splitIndex) : "";
 
-    this.debugLog("[Obsidian SVN] 解析结果", { normalizedPath, fileName, folderPath });
+    this.debugLog("[Vault SVN] 解析结果", { normalizedPath, fileName, folderPath });
 
     const status = this.mapStatus(code);
     if (!status) {
@@ -646,7 +649,7 @@ export class SvnClient {
     
     for (const pattern of dangerousPatterns) {
       if (pattern.test(input)) {
-        this.debugLog("[Obsidian SVN] 输入校验拦截", {
+        this.debugLog("[Vault SVN] 输入校验拦截", {
           context,
           pattern: pattern.toString(),
           preview: input.slice(0, 120)
@@ -664,7 +667,7 @@ export class SvnClient {
 
   private validateCommitMessage(message: string): void {
     if (message.includes("\u0000")) {
-      this.debugLog("[Obsidian SVN] 提交备注校验拦截", {
+      this.debugLog("[Vault SVN] 提交备注校验拦截", {
         reason: "包含空字符",
         messageLength: message.length,
         messagePreview: message.slice(0, 120)
@@ -673,7 +676,7 @@ export class SvnClient {
     }
 
     if (this.hasInvalidControlChars(message, false)) {
-      this.debugLog("[Obsidian SVN] 提交备注校验拦截", {
+      this.debugLog("[Vault SVN] 提交备注校验拦截", {
         reason: "包含非法控制字符",
         messageLength: message.length,
         messagePreview: message.slice(0, 120)
@@ -681,7 +684,7 @@ export class SvnClient {
       throw new Error("输入验证失败：提交备注包含非法控制字符");
     }
 
-    this.debugLog("[Obsidian SVN] 提交备注校验通过", {
+    this.debugLog("[Vault SVN] 提交备注校验通过", {
       messageLength: message.length,
       hasLineBreak: /\r|\n/.test(message)
     });
@@ -774,7 +777,7 @@ export class SvnClient {
       const fullBest = fullCandidates[0];
       if (fullBest && (fullBest.replacement < repairedReplacementCount || this.countCjk(fullBest.text) > this.countCjk(repaired.text))) {
         const secondPass = this.repairMojibakeLines(fullBest.text);
-        this.debugLog('[Obsidian SVN] 全缓冲区修复选择', { fullBestSource: fullBest.source, fullBestReplacement: fullBest.replacement, fullBestCjk: fullBest.cjk, secondPassChanged: secondPass.changedCount });
+        this.debugLog('[Vault SVN] 全缓冲区修复选择', { fullBestSource: fullBest.source, fullBestReplacement: fullBest.replacement, fullBestCjk: fullBest.cjk, secondPassChanged: secondPass.changedCount });
         repaired = secondPass;
       }
     }
@@ -782,7 +785,7 @@ export class SvnClient {
     // include raw buffer hex sample for debugging
     const rawHexSample = (input as Buffer).subarray(0, 120).toString('hex');
 
-    this.debugLog("[Obsidian SVN] 编码解码来源", {
+    this.debugLog("[Vault SVN] 编码解码来源", {
       selectedSource: best.source,
       selectedScore: best.score,
       replacementCounts: uniqueCandidates.map(c => ({ source: c.source, replacementCount: c.replacementCount })),
@@ -912,20 +915,11 @@ export class SvnClient {
   private async run(args: string[]): Promise<string> {
     const finalArgs = [...args];
 
-    if (this.credentials?.username?.trim()) {
-      finalArgs.push("--username", this.credentials.username.trim());
-    }
-    if (this.credentials?.password?.trim()) {
-      finalArgs.push("--password", this.credentials.password.trim());
-      finalArgs.push("--non-interactive");
-      finalArgs.push("--trust-server-cert-failures", "unknown-ca,cn-mismatch,expired,not-yet-valid,other");
-    }
-
     const safeArgs = this.maskSensitiveArgs(finalArgs);
     const binaries = await this.resolveBinaryCandidates();
 
     for (const binary of binaries) {
-      this.debugLog("[Obsidian SVN] 执行命令", {
+      this.debugLog("[Vault SVN] 执行命令", {
         binary,
         args: safeArgs,
         cwd: this.workingCopyPath
@@ -940,7 +934,7 @@ export class SvnClient {
         });
         const decodedOutput = this.decodeBuffer(stdout as Buffer | string | undefined);
         
-        this.debugLog("[Obsidian SVN] 命令执行成功", {
+        this.debugLog("[Vault SVN] 命令执行成功", {
           binary,
           args: safeArgs,
           stdoutLength: decodedOutput.length,
@@ -951,7 +945,7 @@ export class SvnClient {
         const err = error as Error & { stderr?: Buffer | string; stdout?: Buffer | string; code?: string | number };
 
         if (err.code === "ENOENT") {
-          console.warn("[Obsidian SVN] svn 可执行文件未找到，尝试下一个候选", {
+          console.warn("[Vault SVN] svn 可执行文件未找到，尝试下一个候选", {
             binary,
             args: safeArgs,
             message: err.message
@@ -959,7 +953,7 @@ export class SvnClient {
           continue;
         }
 
-        console.error("[Obsidian SVN] 命令执行失败", {
+        console.error("[Vault SVN] 命令执行失败", {
           binary,
           args: safeArgs,
           code: err.code,
@@ -973,7 +967,7 @@ export class SvnClient {
       }
     }
 
-    console.error("[Obsidian SVN] 所有 svn 候选路径均不可用", {
+    console.error("[Vault SVN] 所有 svn 候选路径均不可用", {
       binaries,
       args: safeArgs,
       cwd: this.workingCopyPath

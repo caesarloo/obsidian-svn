@@ -1,4 +1,4 @@
-# Obsidian SVN 插件 vX.Y.Z 发布说明
+# Vault SVN 插件 vX.Y.Z 发布说明
 
 ## 发布日期
 YYYY-MM-DD
@@ -54,7 +54,7 @@ npm run release:dry-run -- X.Y.Z
 
 ```bash
 gh release create vX.Y.Z dist/main.js dist/manifest.json dist/styles.css \
-  --title "Obsidian SVN vX.Y.Z" \
+  --title "Vault SVN vX.Y.Z" \
   --notes-file RELEASE_vX.Y.Z.md
 ```
 

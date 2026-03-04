@@ -1,5 +1,4 @@
-import { App, PluginSettingTab, Setting } from "obsidian";
-import { RepositoryConfigModal } from "./RepositoryConfigModal";
+import { App, Notice, PluginSettingTab, Setting } from "obsidian";
 import type { ObsidianSvnPlugin } from "../types";
 
 export class ObsidianSvnSettingTab extends PluginSettingTab {
@@ -11,21 +10,29 @@ export class ObsidianSvnSettingTab extends PluginSettingTab {
     const { containerEl } = this;
     containerEl.empty();
 
-    new Setting(containerEl).setName("Obsidian svn").setHeading();
+    new Setting(containerEl).setName("插件设置").setHeading();
 
     new Setting(containerEl)
-      .setName("打开仓库配置弹窗")
-      .setDesc("配置 svn 可执行文件与凭据")
-      .addButton((button) => {
-        button.setButtonText("打开");
-        button.onClick(() => {
-          new RepositoryConfigModal(this.app, this.plugin).open();
+      .setName("Svn 可执行文件")
+      .setDesc("留空或填写 svn；如失败请填写 svn.exe 绝对路径")
+      .addText((text) => {
+        text.setPlaceholder("例如：C:/Program Files/TortoiseSVN/bin/svn.exe 或 svn");
+        text.setValue(this.plugin.settings.svnBinaryPath);
+        text.onChange(async (value) => {
+          const binaryValue = value.trim() || "svn";
+          if (/tortoiseproc\.exe$/i.test(binaryValue.replace(/\\/g, "/"))) {
+            new Notice("所选程序不是 svn 命令行工具，请填写 svn.exe。", 5000);
+            return;
+          }
+
+          this.plugin.settings.svnBinaryPath = binaryValue;
+          await this.plugin.saveSettings();
         });
       });
 
     new Setting(containerEl)
       .setName("说明")
-      .setDesc("若关闭\"持久化保存密码\"，插件会仅在当前会话保存密码，不写入配置文件。")
+      .setDesc("本插件使用系统中的 svn 命令行工具执行版本管理操作。")
       .addExtraButton((button) => {
         button.setIcon("info");
       });
@@ -50,6 +57,7 @@ export class ObsidianSvnSettingTab extends PluginSettingTab {
           const interval = parseInt(value) || 0;
           this.plugin.settings.autoRefreshInterval = interval;
           await this.plugin.saveSettings();
+          await this.plugin.syncAutoRefreshInterval();
         });
       });
 

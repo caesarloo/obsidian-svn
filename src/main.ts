@@ -1,26 +1,24 @@
 import {
+  addIcon,
   Notice,
   Plugin,
   TFile,
   WorkspaceLeaf
 } from "obsidian";
 import { SvnClient } from "./services/svnClient";
-import { decryptPassword } from "./services/cryptoService";
 import { SvnPanelView } from "./views/SvnPanelView";
 import { SvnDiffView } from "./views/SvnDiffView";
-import { RepositoryConfigModal } from "./views/RepositoryConfigModal";
 import { ObsidianSvnSettingTab } from "./views/ObsidianSvnSettingTab";
-import type { ObsidianSvnSettings, SvnCredentials, SvnDiff } from "./types";
+import type { ObsidianSvnSettings, SvnDiff } from "./types";
 
 const VIEW_TYPE_SVN_PANEL = "obsidian-svn-panel";
 const VIEW_TYPE_SVN_DIFF = "obsidian-svn-diff-view";
+const ICON_VAULT_SVN = "vault-svn";
+const ICON_VAULT_SVN_SVG = '<path d="M3 6h6l2 2h10v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><path d="M8 14l2 2 4-4"></path><path d="M16 14v5"></path><path d="M16 19h3"></path>';
 
 const DEFAULT_SETTINGS: ObsidianSvnSettings = {
   svnBinaryPath: "svn",
   workingCopyPath: "",
-  username: "",
-  persistPassword: false,
-  savedPassword: "",
   enableDebugLog: false,
   debugLogMigratedToDefaultOff: false,
   autoRefreshInterval: 0, // 0 表示禁用自动刷新
@@ -32,15 +30,15 @@ const DEFAULT_SETTINGS: ObsidianSvnSettings = {
 
 export default class ObsidianSvnPlugin extends Plugin {
   settings: ObsidianSvnSettings = DEFAULT_SETTINGS;
-  private sessionPassword = "";
   private diffLeaf: WorkspaceLeaf | null = null;
 
   async onload(): Promise<void> {
     await this.loadSettings();
+    addIcon(ICON_VAULT_SVN, ICON_VAULT_SVN_SVG);
     this.registerView(VIEW_TYPE_SVN_PANEL, (leaf) => new SvnPanelView(leaf, this));
     this.registerView(VIEW_TYPE_SVN_DIFF, (leaf) => new SvnDiffView(leaf));
 
-    this.addRibbonIcon("git-pull-request-arrow", "打开 svn 面板", () => {
+    this.addRibbonIcon(ICON_VAULT_SVN, "打开 vault svn 面板", () => {
       void this.activateView();
     });
 
@@ -72,12 +70,6 @@ export default class ObsidianSvnPlugin extends Plugin {
       id: "commit-staged",
       name: "提交已暂存变更",
       callback: () => void this.withView((view) => view.submitCommit())
-    });
-
-    this.addCommand({
-      id: "open-repo-config",
-      name: "打开仓库配置",
-      callback: () => new RepositoryConfigModal(this.app, this).open()
     });
 
     this.addCommand({
@@ -133,8 +125,7 @@ export default class ObsidianSvnPlugin extends Plugin {
   }
 
   getSvnClient(): SvnClient {
-    const credentials = this.getCredentials();
-    return new SvnClient(this.settings.svnBinaryPath, this.settings.workingCopyPath, credentials, this.settings.enableDebugLog);
+    return new SvnClient(this.settings.svnBinaryPath, this.settings.workingCopyPath, this.settings.enableDebugLog);
   }
 
   debugLog(message: string, details?: unknown): void {
@@ -146,14 +137,6 @@ export default class ObsidianSvnPlugin extends Plugin {
       return;
     }
     console.debug(message, details);
-  }
-
-  setSessionPassword(password: string): void {
-    this.sessionPassword = password;
-  }
-
-  getSessionPassword(): string {
-    return this.sessionPassword;
   }
 
   async openDiffInEditor(diff: SvnDiff): Promise<void> {
@@ -190,15 +173,12 @@ export default class ObsidianSvnPlugin extends Plugin {
     }
   }
 
-  private getCredentials(): SvnCredentials | undefined {
-    const password = this.settings.persistPassword ? decryptPassword(this.settings.savedPassword) : this.sessionPassword;
-    if (!this.settings.username.trim() || !password.trim()) {
-      return undefined;
+  async syncAutoRefreshInterval(): Promise<void> {
+    const view = this.getPanelView();
+    if (!view) {
+      return;
     }
-    return {
-      username: this.settings.username,
-      password
-    };
+    view.updateAutoRefreshTimer();
   }
 
   private async activateView(): Promise<void> {
@@ -219,12 +199,20 @@ export default class ObsidianSvnPlugin extends Plugin {
 
   private async withView(task: (view: SvnPanelView) => Promise<void> | void): Promise<void> {
     await this.activateView();
-    const leaf = this.app.workspace.getLeavesOfType(VIEW_TYPE_SVN_PANEL)[0];
-    const view = leaf?.view;
+    const view = this.getPanelView();
     if (!(view instanceof SvnPanelView)) {
       return;
     }
     await task(view);
+  }
+
+  private getPanelView(): SvnPanelView | null {
+    const leaf = this.app.workspace.getLeavesOfType(VIEW_TYPE_SVN_PANEL)[0];
+    const view = leaf?.view;
+    if (!(view instanceof SvnPanelView)) {
+      return null;
+    }
+    return view;
   }
 
   private withActiveFile(checking: boolean, callback: (path: string) => Promise<void>): boolean {

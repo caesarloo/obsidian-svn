@@ -7,7 +7,7 @@
 
 ### 社区插件提审修复
 1. **插件名称合规化**
-   - 从 `Obsidian SVN` 调整为 `Vault SVN`（避免名称冗余）
+   - 统一命名为 `Vault SVN`（避免名称冗余）
 2. **描述文案合规化**
    - 描述更新为 `Manage SVN working copies inside your vault.`
 3. **版本与发布规范修复**

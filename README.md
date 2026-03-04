@@ -2,9 +2,9 @@
 
 Vault SVN 是一个 Obsidian 桌面端插件，用于在库内管理 SVN 工作副本。
 
-当前稳定版本：`1.1.4`
+当前稳定版本：`1.1.5`
 
-最新发布页：https://github.com/caesarloo/obsidian-svn/releases/tag/1.1.4
+最新发布页：https://github.com/caesarloo/obsidian-svn/releases/tag/1.1.5
 
 发版模板：`RELEASE_TEMPLATE.md`
 
@@ -32,19 +32,15 @@ Vault SVN 是一个 Obsidian 桌面端插件，用于在库内管理 SVN 工作�
 ## 3. 打开插件面板
 
 - 方式一：命令面板执行 `打开 SVN 面板`
-- 方式二：点击左侧 Ribbon 图标 `Open Obsidian SVN`
+- 方式二：点击左侧 Ribbon 图标 `Open Vault SVN`
 
 ## 4. 首次配置
 
-在插件面板点击“设置”，填写以下信息：
+在插件设置中填写以下信息：
 
-- 工作副本路径
 - svn 可执行文件路径（可选，未填时使用系统 PATH）
-- 用户名（可选）
-- 密码（可选）
-- 是否持久化保存密码
-
-说明：关闭“持久化保存密码”时，密码只保存在当前会话内存。
+- 自动刷新间隔
+- 启动自动打开面板等行为选项
 
 ## 5. 日常使用流程
 
@@ -89,5 +85,4 @@ Vault SVN 是一个 Obsidian 桌面端插件，用于在库内管理 SVN 工作�
 
 ### 提交失败
 
-- 检查用户名/密码是否正确。
 - 检查是否存在冲突或权限问题。
