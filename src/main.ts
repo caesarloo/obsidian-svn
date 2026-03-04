@@ -14,7 +14,7 @@ import type { ObsidianSvnSettings, SvnDiff } from "./types";
 const VIEW_TYPE_SVN_PANEL = "obsidian-svn-panel";
 const VIEW_TYPE_SVN_DIFF = "obsidian-svn-diff-view";
 const ICON_VAULT_SVN = "vault-svn";
-const ICON_VAULT_SVN_SVG = '<path d="M3 6h6l2 2h10v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><path d="M8 14l2 2 4-4"></path><path d="M16 14v5"></path><path d="M16 19h3"></path>';
+const ICON_VAULT_SVN_SVG = '<path d="M15 59C15 49.1 23.1 41 33 41C36.5 41 39.8 42 42.6 43.7C46.4 36.7 53.8 32 62.2 32C74.3 32 84.1 41.8 84.1 53.9C92.4 54.2 99 61 99 69.3C99 77.8 92.1 84.7 83.6 84.7H33.8C23.4 84.7 15 76.3 15 65.9V59Z" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"></path>';
 
 const DEFAULT_SETTINGS: ObsidianSvnSettings = {
   svnBinaryPath: "svn",
