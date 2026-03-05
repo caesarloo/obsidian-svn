@@ -481,11 +481,16 @@ export class SvnPanelView extends ItemView {
     }
   }
 
-  private async showFileDiff(path: string, keepUpdatePanel = false, compareWithPrevious = false): Promise<void> {
+  private async showFileDiff(
+    path: string,
+    keepUpdatePanel = false,
+    compareWithPrevious = false,
+    updateStatus?: "added" | "modified" | "deleted" | "unchanged"
+  ): Promise<void> {
     try {
       this.showLoading("获取文件差异中...");
       const client = this.plugin.getSvnClient();
-      const diff = await client.diff(path, compareWithPrevious);
+      const diff = await client.diff(path, compareWithPrevious, updateStatus);
       await this.plugin.openDiffInEditor(diff);
       if (!keepUpdatePanel) {
         this.hideUpdateFeedback();
@@ -517,7 +522,7 @@ export class SvnPanelView extends ItemView {
         text: entry.path,
         attr: { "aria-label": `查看差异：${entry.path}` }
       });
-      fileLabel.addEventListener("click", () => void this.showFileDiff(entry.path, true, true));
+      fileLabel.addEventListener("click", () => void this.showFileDiff(entry.path, true, true, entry.status));
       entryEl.createSpan({ cls: `svn-tag svn-tag-${entry.status}`, text: STATUS_LABELS[entry.status as SvnStatusKind] || entry.status });
     });
 

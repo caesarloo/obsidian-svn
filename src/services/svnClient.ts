@@ -120,21 +120,59 @@ export class SvnClient {
     return this.parseUpdateOutput(output);
   }
 
-  async diff(path: string, compareWithPrevious = false): Promise<SvnDiff> {
+  async diff(
+    path: string,
+    compareWithPrevious = false,
+    updateStatus?: "added" | "modified" | "deleted" | "unchanged"
+  ): Promise<SvnDiff> {
     this.validateInput(path, `文件路径 "${path}"`);
 
     let output = "";
     if (compareWithPrevious) {
-      try {
-        output = await this.runRawUtf8(["diff", "-r", "PREV:COMMITTED", path]);
-      } catch {
-        output = await this.runRawUtf8(["diff", "-r", "0:COMMITTED", path]);
+      if (updateStatus === "deleted") {
+        output = await this.diffViaRepositoryUrl(path);
+      } else {
+        try {
+          output = await this.runRawUtf8(["diff", "-r", "PREV:COMMITTED", path]);
+        } catch {
+          try {
+            output = await this.runRawUtf8(["diff", "-r", "0:COMMITTED", path]);
+          } catch {
+            output = await this.diffViaRepositoryUrl(path);
+          }
+        }
       }
     } else {
       output = await this.runRawUtf8(["diff", path]);
     }
 
     return this.parseDiffOutput(path, output, compareWithPrevious ? "previous-revision" : "working-copy");
+  }
+
+  private async diffViaRepositoryUrl(path: string): Promise<string> {
+    const workingCopyUrl = (await this.runRawUtf8(["info", "--show-item", "url"])).trim().replace(/\/+$/g, "");
+    const revisionText = (await this.runRawUtf8(["info", "--show-item", "revision"])).trim();
+    const committedRevision = Number.parseInt(revisionText, 10);
+
+    if (!Number.isFinite(committedRevision) || committedRevision <= 0) {
+      throw new Error(`无法解析当前工作副本版本号：${revisionText}`);
+    }
+
+    const previousRevision = Math.max(committedRevision - 1, 0);
+    const pegRevision = Math.max(previousRevision, 1);
+    const encodedPath = path
+      .replace(/\\/g, "/")
+      .split("/")
+      .map((segment) => encodeURIComponent(segment))
+      .join("/");
+    const fileUrl = `${workingCopyUrl}/${encodedPath}`;
+
+    return await this.runRawUtf8([
+      "diff",
+      "-r",
+      `${previousRevision}:${committedRevision}`,
+      `${fileUrl}@${pegRevision}`
+    ]);
   }
 
   private parseUpdateOutput(output: string): UpdateResult {
