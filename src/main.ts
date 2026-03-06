@@ -144,17 +144,31 @@ export default class ObsidianSvnPlugin extends Plugin {
     const trackedLeaf = this.diffLeaf;
     const trackedValid = trackedLeaf ? diffLeaves.includes(trackedLeaf) : false;
 
-    if (!trackedValid && diffLeaves.length > 0) {
-      this.diffLeaf = diffLeaves[0];
+    this.debugLog("[Vault SVN] openDiffInEditor 开始", {
+      filePath: diff.filePath,
+      trackedLeafExists: Boolean(trackedLeaf),
+      trackedValid,
+      diffLeavesCount: diffLeaves.length
+    });
+
+    if (!trackedValid) {
+      this.diffLeaf = diffLeaves[0] ?? null;
+      this.debugLog("[Vault SVN] 重置 diffLeaf 引用", {
+        hasReusableLeaf: Boolean(this.diffLeaf)
+      });
     }
 
     const leaf = this.diffLeaf ?? this.app.workspace.getLeaf("tab");
     if (!leaf) {
+      this.debugLog("[Vault SVN] 无法获取可用 leaf", { filePath: diff.filePath });
       new Notice("无法打开差异视图");
       return;
     }
 
     this.diffLeaf = leaf;
+    this.debugLog("[Vault SVN] 选定 diff leaf", {
+      reusedLeaf: trackedValid || diffLeaves.length > 0
+    });
 
     if (diffLeaves.length > 1) {
       diffLeaves.slice(1).forEach((extraLeaf) => {
@@ -165,12 +179,28 @@ export default class ObsidianSvnPlugin extends Plugin {
     }
 
     await leaf.setViewState({ type: VIEW_TYPE_SVN_DIFF, active: true });
+    this.debugLog("[Vault SVN] leaf.setViewState 完成", {
+      filePath: diff.filePath,
+      viewType: leaf.view?.getViewType?.()
+    });
     await this.app.workspace.revealLeaf(leaf);
+    this.debugLog("[Vault SVN] revealLeaf 完成", { filePath: diff.filePath });
 
     const view = leaf.view;
     if (view instanceof SvnDiffView) {
       await view.setDiff(diff);
+      this.debugLog("[Vault SVN] 差异视图 setDiff 完成", {
+        filePath: diff.filePath,
+        lineCount: diff.lines.length,
+        compareMode: diff.compareMode
+      });
+      return;
     }
+
+    this.debugLog("[Vault SVN] leaf.view 不是 SvnDiffView", {
+      filePath: diff.filePath,
+      runtimeViewType: view?.getViewType?.() ?? "unknown"
+    });
   }
 
   async syncAutoRefreshInterval(): Promise<void> {

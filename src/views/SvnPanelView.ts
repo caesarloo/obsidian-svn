@@ -488,14 +488,30 @@ export class SvnPanelView extends ItemView {
     updateStatus?: "added" | "modified" | "deleted" | "unchanged"
   ): Promise<void> {
     try {
+      this.plugin.debugLog("[Vault SVN] 准备显示文件差异", {
+        path,
+        keepUpdatePanel,
+        compareWithPrevious,
+        updateStatus
+      });
       this.showLoading("获取文件差异中...");
       const client = this.plugin.getSvnClient();
       const diff = await client.diff(path, compareWithPrevious, updateStatus);
+      this.plugin.debugLog("[Vault SVN] 文件差异获取成功", {
+        path,
+        compareMode: diff.compareMode,
+        lineCount: diff.lines.length
+      });
       await this.plugin.openDiffInEditor(diff);
+      this.plugin.debugLog("[Vault SVN] 文件差异已请求打开", { path });
       if (!keepUpdatePanel) {
         this.hideUpdateFeedback();
       }
     } catch (error) {
+      this.plugin.debugLog("[Vault SVN] 文件差异打开失败", {
+        path,
+        error: (error as Error).message
+      });
       new Notice(`获取差异失败：${(error as Error).message}`);
     } finally {
       this.hideLoading();
