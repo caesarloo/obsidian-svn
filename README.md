@@ -2,9 +2,9 @@
 
 Vault SVN 是一个 Obsidian 桌面端插件，用于在库内管理 SVN 工作副本。
 
-当前稳定版本：`1.1.6`
+当前稳定版本：`1.1.7`
 
-最新发布页：https://github.com/caesarloo/obsidian-svn/releases/tag/1.1.6
+最新发布页：https://github.com/caesarloo/obsidian-svn/releases/tag/1.1.7
 
 发版模板：`RELEASE_TEMPLATE.md`
 
