@@ -125,7 +125,12 @@ export class SvnPanelView extends ItemView {
       this.showLoading("生成摘要中...");
       const selected = this.entries.filter((entry) => this.staged.has(entry.path));
       const source = selected.length ? selected : this.entries;
-      const summary = await generateSummaryWithFallback(source);
+      const client = this.plugin.getSvnClient();
+      const summary = await generateSummaryWithFallback(source, async (entry) => {
+        const diffStatus = entry.status === "added" || entry.status === "modified" || entry.status === "deleted" ? entry.status : undefined;
+        const diff = await client.diff(entry.path, false, diffStatus);
+        return diff.lines.map((line) => ({ content: line.content, type: line.type }));
+      });
       this.commitMessage = summary;
       if (this.commitInputEl) {
         this.commitInputEl.value = summary;
@@ -339,7 +344,7 @@ export class SvnPanelView extends ItemView {
         "aria-label": `查看差异：${entry.path}`
       }
     });
-    labelBtn.addEventListener("click", () => void this.showFileDiff(entry.path));
+    labelBtn.addEventListener("click", () => void this.showFileDiff(entry.path, false, false, entry.status));
 
     row.createSpan({ cls: `svn-tag svn-tag-${entry.status}`, text: STATUS_LABELS[entry.status] });
     if (this.staged.has(entry.path)) {
@@ -352,7 +357,7 @@ export class SvnPanelView extends ItemView {
       this.toggleStage(entry.path, !isStaged);
       this.renderStatusTree();
     });
-    this.createMiniIcon(actions, "refresh-ccw", "还原", () => void this.revertFile(entry.path));
+    this.createMiniIcon(actions, "refresh-ccw", "还原", () => void this.revertFile(entry.path, entry.status));
   }
 
   private renderConflicts(): void {
@@ -452,9 +457,30 @@ export class SvnPanelView extends ItemView {
     }
   }
 
-  private async revertFile(path: string): Promise<void> {
+  private async revertFile(path: string, status?: SvnStatusKind): Promise<void> {
     try {
       this.showLoading("还原中...");
+
+      if (status === "untracked") {
+        const stat = await this.app.vault.adapter.stat(path);
+        if (!stat) {
+          new Notice(`文件不存在：${path}`);
+          await this.refreshStatus(false);
+          return;
+        }
+
+        if (stat.type === "folder") {
+          await this.app.vault.adapter.rmdir(path, true);
+        } else {
+          await this.app.vault.adapter.remove(path);
+        }
+
+        this.staged.delete(path);
+        new Notice(`已删除未跟踪文件：${path}`);
+        await this.refreshStatus(false);
+        return;
+      }
+
       const client = this.plugin.getSvnClient();
       await client.revert([path]);
       this.staged.delete(path);
@@ -485,8 +511,18 @@ export class SvnPanelView extends ItemView {
     path: string,
     keepUpdatePanel = false,
     compareWithPrevious = false,
-    updateStatus?: "added" | "modified" | "deleted" | "unchanged"
+    updateStatus?: SvnStatusKind | "unchanged"
   ): Promise<void> {
+    if (updateStatus === "deleted") {
+      new Notice("文件已删除");
+      return;
+    }
+
+    const diffStatus =
+      updateStatus === "added" || updateStatus === "modified" || updateStatus === "unchanged"
+        ? updateStatus
+        : undefined;
+
     try {
       this.plugin.debugLog("[Vault SVN] 准备显示文件差异", {
         path,
@@ -496,7 +532,7 @@ export class SvnPanelView extends ItemView {
       });
       this.showLoading("获取文件差异中...");
       const client = this.plugin.getSvnClient();
-      const diff = await client.diff(path, compareWithPrevious, updateStatus);
+      const diff = await client.diff(path, compareWithPrevious, diffStatus);
       this.plugin.debugLog("[Vault SVN] 文件差异获取成功", {
         path,
         compareMode: diff.compareMode,

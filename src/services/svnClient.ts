@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { constants } from "node:fs";
-import { access } from "node:fs/promises";
+import { access, readFile } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 import iconv from "iconv-lite";
@@ -121,32 +121,87 @@ export class SvnClient {
   }
 
   async diff(
-    path: string,
+    filePath: string,
     compareWithPrevious = false,
     updateStatus?: "added" | "modified" | "deleted" | "unchanged"
   ): Promise<SvnDiff> {
-    this.validateInput(path, `文件路径 "${path}"`);
+    this.validateInput(filePath, `文件路径 "${filePath}"`);
+
+    if (updateStatus === "added") {
+      return await this.buildFileContentDiff(filePath);
+    }
 
     let output = "";
     if (compareWithPrevious) {
       if (updateStatus === "deleted") {
-        output = await this.diffViaRepositoryUrl(path);
+        output = await this.diffViaRepositoryUrl(filePath);
       } else {
         try {
-          output = await this.runRawUtf8(["diff", "-r", "PREV:COMMITTED", path]);
+          output = await this.runRawUtf8(["diff", "--force", "-r", "PREV:COMMITTED", filePath]);
         } catch {
           try {
-            output = await this.runRawUtf8(["diff", "-r", "0:COMMITTED", path]);
+            output = await this.runRawUtf8(["diff", "--force", "-r", "0:COMMITTED", filePath]);
           } catch {
-            output = await this.diffViaRepositoryUrl(path);
+            output = await this.diffViaRepositoryUrl(filePath);
           }
         }
       }
     } else {
-      output = await this.runRawUtf8(["diff", path]);
+      try {
+        output = await this.runRawUtf8(["diff", "--force", filePath]);
+      } catch {
+        // 新增/未纳入版本控制文件无法生成 svn diff，降级为直接显示文件内容
+        return await this.buildFileContentDiff(filePath);
+      }
     }
 
-    return this.parseDiffOutput(path, output, compareWithPrevious ? "previous-revision" : "working-copy");
+    return this.parseDiffOutput(filePath, output, compareWithPrevious ? "previous-revision" : "working-copy");
+  }
+
+  private async buildFileContentDiff(relativePath: string): Promise<SvnDiff> {
+    const fullPath = path.join(this.workingCopyPath, relativePath);
+    const fileBuffer = await readFile(fullPath);
+
+    if (this.isLikelyBinaryFile(fileBuffer)) {
+      throw new Error(`该文件可能为二进制文件，暂不支持文本预览：${relativePath}`);
+    }
+
+    const text = this.decodeBuffer(fileBuffer);
+    const lines = text.split(/\r?\n/);
+
+    const parsedLines: DiffLine[] = lines.map((content, index) => ({
+      lineNumber: index + 1,
+      content,
+      type: "unchanged"
+    }));
+
+    return {
+      filePath: relativePath,
+      lines: parsedLines,
+      compareMode: "file-content"
+    };
+  }
+
+  private isLikelyBinaryFile(buffer: Buffer): boolean {
+    if (!buffer.length) {
+      return false;
+    }
+
+    const sampleLength = Math.min(buffer.length, 8000);
+    let suspiciousCount = 0;
+
+    for (let i = 0; i < sampleLength; i += 1) {
+      const value = buffer[i];
+      if (value === 0) {
+        return true;
+      }
+      const isAllowedControl = value === 9 || value === 10 || value === 13;
+      if (!isAllowedControl && value < 32) {
+        suspiciousCount += 1;
+      }
+    }
+
+    return suspiciousCount / sampleLength > 0.1;
   }
 
   private async diffViaRepositoryUrl(path: string): Promise<string> {
@@ -169,6 +224,7 @@ export class SvnClient {
 
     return await this.runRawUtf8([
       "diff",
+      "--force",
       "-r",
       `${previousRevision}:${committedRevision}`,
       `${fileUrl}@${pegRevision}`

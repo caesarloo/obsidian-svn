@@ -44,10 +44,20 @@ export class SvnDiffView extends ItemView {
     this.currentDiff = diff;
     this.currentPage = 1;
     const fileName = diff.filePath.split("/").pop() || diff.filePath;
-    const modeLabel = diff.compareMode === "previous-revision" ? "历史对比" : "本地对比";
+    const modeLabel = this.getModeLabel(diff.compareMode);
     this.displayText = `Vault SVN 差异 · ${modeLabel} · ${fileName}`;
     await this.syncLeafState();
     this.render();
+  }
+
+  private getModeLabel(mode: SvnDiff["compareMode"]): string {
+    if (mode === "previous-revision") {
+      return "历史对比";
+    }
+    if (mode === "file-content") {
+      return "文件内容";
+    }
+    return "本地对比";
   }
 
   private async syncLeafState(): Promise<void> {
@@ -68,7 +78,7 @@ export class SvnDiffView extends ItemView {
     root.addClass("svn-diff-view-root");
 
     const header = root.createDiv({ cls: "svn-diff-view-header" });
-    const modeLabel = this.currentDiff?.compareMode === "previous-revision" ? "历史对比" : "本地对比";
+    const modeLabel = this.getModeLabel(this.currentDiff?.compareMode);
     header.createDiv({ cls: "svn-diff-view-title", text: this.currentDiff ? `文件差异（${modeLabel}）- ${this.currentDiff.filePath}` : "文件差异" });
 
     const content = root.createDiv({ cls: "svn-diff-view-content" });

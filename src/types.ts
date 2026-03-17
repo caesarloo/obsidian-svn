@@ -47,7 +47,7 @@ export interface DiffLine {
 export interface SvnDiff {
   filePath: string;
   lines: DiffLine[];
-  compareMode?: "working-copy" | "previous-revision";
+  compareMode?: "working-copy" | "previous-revision" | "file-content";
 }
 
 // 更新反馈相关类型
