@@ -1,4 +1,4 @@
-import { ItemView, Modal, Notice, WorkspaceLeaf, setIcon } from "obsidian";
+import { ItemView, Modal, Notice, TFile, WorkspaceLeaf, setIcon } from "obsidian";
 import { generateSummaryWithFallback } from "../services/summaryService";
 import type { GroupedStatus, ObsidianSvnPlugin, SvnStatusEntry, SvnStatusKind, UpdateResult } from "../types";
 
@@ -554,6 +554,20 @@ export class SvnPanelView extends ItemView {
     }
   }
 
+  private async openFileInEditor(path: string): Promise<void> {
+    const normalizedPath = path.replace(/^\//, "");
+    const file = this.app.vault.getAbstractFileByPath(normalizedPath);
+    if (file instanceof TFile) {
+      const leaf = this.app.workspace.getLeaf("tab");
+      if (leaf) {
+        await leaf.openFile(file);
+        await this.app.workspace.revealLeaf(leaf);
+      }
+    } else {
+      new Notice(`文件不存在：${path}`);
+    }
+  }
+
   private renderUpdateFeedback(): void {
     if (!this.updateFeedbackEl || !this.updateResult || !this.updateContentEl) {
       return;
@@ -574,7 +588,11 @@ export class SvnPanelView extends ItemView {
         text: entry.path,
         attr: { "aria-label": `查看差异：${entry.path}` }
       });
-      fileLabel.addEventListener("click", () => void this.showFileDiff(entry.path, true, true, entry.status));
+      if (entry.status === "added") {
+        fileLabel.addEventListener("click", () => void this.openFileInEditor(entry.path));
+      } else {
+        fileLabel.addEventListener("click", () => void this.showFileDiff(entry.path, true, true, entry.status));
+      }
       entryEl.createSpan({ cls: `svn-tag svn-tag-${entry.status}`, text: STATUS_LABELS[entry.status as SvnStatusKind] || entry.status });
     });
 
