@@ -96,12 +96,6 @@ npm run build
 
 # Type-check
 npm run typecheck
-
-# One-command release (CI mode recommended)
-npm run release:publish -- --ci X.Y.Z
-
-# Dry-run release precheck
-npm run release:dry-run -- X.Y.Z
 ```
 
 ---
@@ -118,13 +112,7 @@ Vault SVN 是一个 Obsidian **桌面端**插件，用于在库内管理 SVN 工
 
 最新发布页：https://github.com/caesarloo/obsidian-svn/releases/tag/1.1.10
 
-发版模板：`RELEASE_TEMPLATE.md`
 
-一键发版命令：`npm run release:publish -- X.Y.Z`
-- **本地发布（默认）**：直接创建 Release（需安装 `gh` CLI 并登录）
-- **CI 发布（推荐）**：`npm run release:publish -- --ci X.Y.Z` — 推送 tag 后由 GitHub Actions 自动构建、签名（artifact attestation）并发布
-
-发版预检查（不发布）：`npm run release:dry-run -- X.Y.Z`
 
 ### 1. 安装插件
 
