@@ -9,6 +9,7 @@ import { SvnClient } from "./services/svnClient";
 import { SvnPanelView } from "./views/SvnPanelView";
 import { SvnDiffView } from "./views/SvnDiffView";
 import { ObsidianSvnSettingTab } from "./views/ObsidianSvnSettingTab";
+import { t } from "./i18n";
 import type { ObsidianSvnSettings, SvnDiff } from "./types";
 
 const VIEW_TYPE_SVN_PANEL = "obsidian-svn-panel";
@@ -22,10 +23,11 @@ const DEFAULT_SETTINGS: ObsidianSvnSettings = {
   enableDebugLog: false,
   debugLogMigratedToDefaultOff: false,
   autoRefreshInterval: 0, // 0 表示禁用自动刷新
-  autoOpenPanel: true, // 启动时自动打开 SVN 面板
+  autoOpenPanel: false, // 启动时自动打开 SVN 面板
   autoGenerateSummary: true, // 提交时自动生成摘要
   diffTheme: 'light', // 差异显示主题
-  defaultExpandFolders: false // 文件树默认展开状态
+  defaultExpandFolders: false, // 文件树默认展开状态
+  language: "zh", // 显示语言
 };
 
 export default class ObsidianSvnPlugin extends Plugin {
@@ -36,57 +38,57 @@ export default class ObsidianSvnPlugin extends Plugin {
     await this.loadSettings();
     addIcon(ICON_VAULT_SVN, ICON_VAULT_SVN_SVG);
     this.registerView(VIEW_TYPE_SVN_PANEL, (leaf) => new SvnPanelView(leaf, this));
-    this.registerView(VIEW_TYPE_SVN_DIFF, (leaf) => new SvnDiffView(leaf));
+    this.registerView(VIEW_TYPE_SVN_DIFF, (leaf) => new SvnDiffView(leaf, this.settings.language));
 
-    this.addRibbonIcon(ICON_VAULT_SVN, "打开 vault svn 面板", () => {
+    this.addRibbonIcon(ICON_VAULT_SVN, t("ribbon.openPanel", this.settings.language), () => {
       void this.activateView();
     });
 
     this.addCommand({
       id: "open-panel",
-      name: "打开 svn 面板",
+      name: t("cmd.openPanel", this.settings.language),
       callback: () => void this.activateView()
     });
 
     this.addCommand({
       id: "refresh-status",
-      name: "刷新 svn 状态",
+      name: t("cmd.refreshStatus", this.settings.language),
       callback: () => void this.withView((view) => view.refreshStatus(true))
     });
 
     this.addCommand({
       id: "update-working-copy",
-      name: "更新工作副本",
+      name: t("cmd.update", this.settings.language),
       callback: () => void this.withView((view) => view.updateWorkingCopy())
     });
 
     this.addCommand({
       id: "generate-summary",
-      name: "生成提交摘要",
+      name: t("cmd.generateSummary", this.settings.language),
       callback: () => void this.withView((view) => view.generateSummary())
     });
 
     this.addCommand({
       id: "commit-staged",
-      name: "提交已暂存变更",
+      name: t("cmd.commit", this.settings.language),
       callback: () => void this.withView((view) => view.submitCommit())
     });
 
     this.addCommand({
       id: "add-active-file",
-      name: "添加当前文件到 svn",
+      name: t("cmd.addFile", this.settings.language),
       checkCallback: (checking) => this.withActiveFile(checking, (path) => this.runSingleFileAction("add", path))
     });
 
     this.addCommand({
       id: "delete-active-file",
-      name: "从 svn 删除当前文件",
+      name: t("cmd.deleteFile", this.settings.language),
       checkCallback: (checking) => this.withActiveFile(checking, (path) => this.runSingleFileAction("delete", path))
     });
 
     this.addCommand({
       id: "revert-active-file",
-      name: "还原当前文件",
+      name: t("cmd.revertFile", this.settings.language),
       checkCallback: (checking) => this.withActiveFile(checking, (path) => this.runSingleFileAction("revert", path))
     });
 

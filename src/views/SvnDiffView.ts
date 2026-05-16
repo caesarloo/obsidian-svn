@@ -1,14 +1,16 @@
 import { ItemView, WorkspaceLeaf } from "obsidian";
 import type { SvnDiff } from "../types";
+import { t, type Lang } from "../i18n";
 
 export class SvnDiffView extends ItemView {
   private currentDiff: SvnDiff | null = null;
   private currentPage = 1;
   private readonly pageSize = 400;
-  private displayText = "Vault SVN 文件差异";
+  private displayText: string;
 
-  constructor(leaf: WorkspaceLeaf) {
+  constructor(leaf: WorkspaceLeaf, private readonly lang: Lang) {
     super(leaf);
+    this.displayText = t("diff.title", this.lang);
   }
 
   getViewType(): string {
@@ -45,19 +47,19 @@ export class SvnDiffView extends ItemView {
     this.currentPage = 1;
     const fileName = diff.filePath.split("/").pop() || diff.filePath;
     const modeLabel = this.getModeLabel(diff.compareMode);
-    this.displayText = `Vault SVN 差异 · ${modeLabel} · ${fileName}`;
+    this.displayText = t("diff.tabTitle", this.lang, { mode: modeLabel, file: fileName });
     await this.syncLeafState();
     this.render();
   }
 
   private getModeLabel(mode: SvnDiff["compareMode"]): string {
     if (mode === "previous-revision") {
-      return "历史对比";
+      return t("diff.modePrevious", this.lang);
     }
     if (mode === "file-content") {
-      return "文件内容";
+      return t("diff.modeFileContent", this.lang);
     }
-    return "本地对比";
+    return t("diff.modeLocal", this.lang);
   }
 
   private async syncLeafState(): Promise<void> {
@@ -79,11 +81,16 @@ export class SvnDiffView extends ItemView {
 
     const header = root.createDiv({ cls: "svn-diff-view-header" });
     const modeLabel = this.getModeLabel(this.currentDiff?.compareMode);
-    header.createDiv({ cls: "svn-diff-view-title", text: this.currentDiff ? `文件差异（${modeLabel}）- ${this.currentDiff.filePath}` : "文件差异" });
+    header.createDiv({
+      cls: "svn-diff-view-title",
+      text: this.currentDiff
+        ? t("diff.headerWithMode", this.lang, { mode: modeLabel, path: this.currentDiff.filePath })
+        : t("diff.header", this.lang)
+    });
 
     const content = root.createDiv({ cls: "svn-diff-view-content" });
     if (!this.currentDiff) {
-      content.createDiv({ cls: "svn-helper-text", text: "在 Vault SVN 侧边栏点击文件名查看差异。" });
+      content.createDiv({ cls: "svn-helper-text", text: t("diff.hint", this.lang) });
       return;
     }
 
@@ -103,22 +110,22 @@ export class SvnDiffView extends ItemView {
     });
 
     if (!this.currentDiff.lines.length) {
-      content.createDiv({ cls: "svn-helper-text", text: "无差异" });
+      content.createDiv({ cls: "svn-helper-text", text: t("diff.noDiff", this.lang) });
       return;
     }
 
     if (totalPages > 1) {
       const pager = content.createDiv({ cls: "svn-diff-pager" });
-      const prevBtn = pager.createEl("button", { cls: "svn-btn", text: "上一页" });
+      const prevBtn = pager.createEl("button", { cls: "svn-btn", text: t("diff.prevPage", this.lang) });
       prevBtn.disabled = this.currentPage <= 1;
       prevBtn.addEventListener("click", () => {
         this.currentPage -= 1;
         this.render();
       });
 
-      pager.createDiv({ cls: "svn-helper-text", text: `第 ${this.currentPage} / ${totalPages} 页` });
+      pager.createDiv({ cls: "svn-helper-text", text: t("diff.pageInfo", this.lang, { current: this.currentPage, total: totalPages }) });
 
-      const nextBtn = pager.createEl("button", { cls: "svn-btn", text: "下一页" });
+      const nextBtn = pager.createEl("button", { cls: "svn-btn", text: t("diff.nextPage", this.lang) });
       nextBtn.disabled = this.currentPage >= totalPages;
       nextBtn.addEventListener("click", () => {
         this.currentPage += 1;

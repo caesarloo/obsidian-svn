@@ -25,6 +25,7 @@ export interface ObsidianSvnSettings {
   autoGenerateSummary: boolean; // 提交时自动生成摘要
   diffTheme: 'light' | 'dark'; // 差异显示主题
   defaultExpandFolders: boolean; // 文件树默认展开状态
+  language: 'zh' | 'en'; // 显示语言
 }
 
 // 插件类型定义

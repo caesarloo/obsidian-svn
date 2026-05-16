@@ -1,4 +1,5 @@
 import { App, Notice, PluginSettingTab, Setting } from "obsidian";
+import { t } from "../i18n";
 import type { ObsidianSvnPlugin } from "../types";
 
 export class ObsidianSvnSettingTab extends PluginSettingTab {
@@ -9,37 +10,52 @@ export class ObsidianSvnSettingTab extends PluginSettingTab {
   display(): void {
     const { containerEl } = this;
     containerEl.empty();
+    const lang = this.plugin.settings.language;
 
-    new Setting(containerEl).setName("插件设置").setHeading();
+    new Setting(containerEl).setName(t("settings.heading", lang)).setHeading();
+
+    // Language selector - always shown
+    new Setting(containerEl)
+      .setName(t("settings.language", lang))
+      .setDesc(t("settings.language.desc", lang))
+      .addDropdown((dropdown) => {
+        dropdown.addOption("zh", "中文（简体）");
+        dropdown.addOption("en", "English");
+        dropdown.setValue(this.plugin.settings.language);
+        dropdown.onChange(async (value) => {
+          this.plugin.settings.language = value as "zh" | "en";
+          await this.plugin.saveSettings();
+          this.display(); // re-render settings with new language
+        });
+      });
 
     new Setting(containerEl)
-      .setName("Svn 可执行文件")
-      .setDesc("留空或填写 svn；如失败请填写 svn.exe 绝对路径")
+      .setName(t("settings.svnBinaryPath", lang))
+      .setDesc(t("settings.svnBinaryPath.desc", lang))
       .addText((text) => {
-        text.setPlaceholder("例如：C:/Program Files/TortoiseSVN/bin/svn.exe 或 svn");
+        text.setPlaceholder(t("settings.svnBinaryPath.placeholder", lang));
         text.setValue(this.plugin.settings.svnBinaryPath);
         text.onChange(async (value) => {
           const binaryValue = value.trim() || "svn";
-          if (/tortoiseproc\.exe$/i.test(binaryValue.replace(/\\/g, "/"))) {
-            new Notice("所选程序不是 svn 命令行工具，请填写 svn.exe。", 5000);
+          if (/tortoiseproc\.exe$/i.test(binaryValue.replace(/\\\\/g, "/"))) {
+            new Notice(t("settings.svnBinaryPath.warning", lang), 5000);
             return;
           }
-
           this.plugin.settings.svnBinaryPath = binaryValue;
           await this.plugin.saveSettings();
         });
       });
 
     new Setting(containerEl)
-      .setName("说明")
-      .setDesc("本插件使用系统中的 svn 命令行工具执行版本管理操作。")
+      .setName(t("settings.info", lang))
+      .setDesc(t("settings.info.desc", lang))
       .addExtraButton((button) => {
         button.setIcon("info");
       });
 
     new Setting(containerEl)
-      .setName("调试日志")
-      .setDesc("关闭后将不再输出调试级别日志（console.debug）")
+      .setName(t("settings.debugLog", lang))
+      .setDesc(t("settings.debugLog.desc", lang))
       .addToggle((toggle) => {
         toggle.setValue(this.plugin.settings.enableDebugLog);
         toggle.onChange(async (value) => {
@@ -49,8 +65,8 @@ export class ObsidianSvnSettingTab extends PluginSettingTab {
       });
 
     new Setting(containerEl)
-      .setName("自动刷新间隔")
-      .setDesc("设置自动刷新 svn 状态的间隔时间（秒），0 表示禁用自动刷新")
+      .setName(t("settings.autoRefresh", lang))
+      .setDesc(t("settings.autoRefresh.desc", lang))
       .addText((text) => {
         text.setValue(this.plugin.settings.autoRefreshInterval.toString());
         text.onChange(async (value) => {
@@ -62,8 +78,8 @@ export class ObsidianSvnSettingTab extends PluginSettingTab {
       });
 
     new Setting(containerEl)
-      .setName("启动时自动打开 svn 面板")
-      .setDesc("Obsidian 启动时自动打开 svn 面板")
+      .setName(t("settings.autoOpenPanel", lang))
+      .setDesc(t("settings.autoOpenPanel.desc", lang))
       .addToggle((toggle) => {
         toggle.setValue(this.plugin.settings.autoOpenPanel);
         toggle.onChange(async (value) => {
@@ -73,8 +89,8 @@ export class ObsidianSvnSettingTab extends PluginSettingTab {
       });
 
     new Setting(containerEl)
-      .setName("提交时自动生成摘要")
-      .setDesc("提交时自动生成提交摘要")
+      .setName(t("settings.autoGenerateSummary", lang))
+      .setDesc(t("settings.autoGenerateSummary.desc", lang))
       .addToggle((toggle) => {
         toggle.setValue(this.plugin.settings.autoGenerateSummary);
         toggle.onChange(async (value) => {
@@ -84,11 +100,11 @@ export class ObsidianSvnSettingTab extends PluginSettingTab {
       });
 
     new Setting(containerEl)
-      .setName("Svn 差异显示主题")
-      .setDesc("设置文件差异显示的主题")
+      .setName(t("settings.diffTheme", lang))
+      .setDesc(t("settings.diffTheme.desc", lang))
       .addDropdown((dropdown) => {
-        dropdown.addOption('light', '浅色');
-        dropdown.addOption('dark', '深色');
+        dropdown.addOption('light', t("diffTheme.light", lang));
+        dropdown.addOption('dark', t("diffTheme.dark", lang));
         dropdown.setValue(this.plugin.settings.diffTheme);
         dropdown.onChange(async (value) => {
           this.plugin.settings.diffTheme = value as 'light' | 'dark';
@@ -97,8 +113,8 @@ export class ObsidianSvnSettingTab extends PluginSettingTab {
       });
 
     new Setting(containerEl)
-      .setName("文件树默认展开状态")
-      .setDesc("设置文件树的默认展开状态")
+      .setName(t("settings.defaultExpandFolders", lang))
+      .setDesc(t("settings.defaultExpandFolders.desc", lang))
       .addToggle((toggle) => {
         toggle.setValue(this.plugin.settings.defaultExpandFolders);
         toggle.onChange(async (value) => {
