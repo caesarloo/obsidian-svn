@@ -92,7 +92,9 @@ export default class ObsidianSvnPlugin extends Plugin {
 
     this.addSettingTab(new ObsidianSvnSettingTab(this.app, this));
     this.app.workspace.onLayoutReady(() => {
-      void this.activateView();
+      if (this.settings.autoOpenPanel) {
+        void this.activateView();
+      }
     });
   }
 
