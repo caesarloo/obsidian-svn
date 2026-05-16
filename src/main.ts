@@ -23,7 +23,6 @@ const DEFAULT_SETTINGS: ObsidianSvnSettings = {
   enableDebugLog: false,
   debugLogMigratedToDefaultOff: false,
   autoRefreshInterval: 0, // 0 表示禁用自动刷新
-  autoOpenPanel: false, // 启动时自动打开 SVN 面板
   autoGenerateSummary: true, // 提交时自动生成摘要
   diffTheme: 'light', // 差异显示主题
   defaultExpandFolders: false, // 文件树默认展开状态
@@ -93,11 +92,6 @@ export default class ObsidianSvnPlugin extends Plugin {
     });
 
     this.addSettingTab(new ObsidianSvnSettingTab(this.app, this));
-    this.app.workspace.onLayoutReady(() => {
-      if (this.settings.autoOpenPanel) {
-        void this.activateView();
-      }
-    });
   }
 
   onunload(): void {

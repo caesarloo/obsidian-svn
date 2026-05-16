@@ -78,17 +78,6 @@ export class ObsidianSvnSettingTab extends PluginSettingTab {
       });
 
     new Setting(containerEl)
-      .setName(t("settings.autoOpenPanel", lang))
-      .setDesc(t("settings.autoOpenPanel.desc", lang))
-      .addToggle((toggle) => {
-        toggle.setValue(this.plugin.settings.autoOpenPanel);
-        toggle.onChange(async (value) => {
-          this.plugin.settings.autoOpenPanel = value;
-          await this.plugin.saveSettings();
-        });
-      });
-
-    new Setting(containerEl)
       .setName(t("settings.autoGenerateSummary", lang))
       .setDesc(t("settings.autoGenerateSummary.desc", lang))
       .addToggle((toggle) => {
