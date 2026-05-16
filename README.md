@@ -1,6 +1,8 @@
 # Vault SVN 插件使用说明
 
-Vault SVN 是一个 Obsidian 桌面端插件，用于在库内管理 SVN 工作副本。
+Vault SVN 是一个 Obsidian **桌面端**插件，用于在库内管理 SVN 工作副本。
+
+> ⚠️ **权限说明**：本插件通过 Node.js `child_process.execFile` 调用系统已安装的 `svn` CLI 命令，并使用 `fs` 模块直接访问文件系统上的 SVN 工作副本。插件仅在用户配置的工作副本路径下执行 SVN 操作，不会主动访问其他目录。这些权限是 SVN 版本管理功能所必需的，无法通过 Obsidian vault API 替代。
 
 当前稳定版本：`1.1.10`
 
