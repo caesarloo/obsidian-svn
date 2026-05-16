@@ -38,9 +38,13 @@ YYYY-MM-DD
 
 ## gh 发布命令（可直接替换版本号执行）
 
-推荐一键发布（自动 build/typecheck/创建 release/设为 latest）：
+推荐一键发布（自动 build/typecheck/签名/发布）：
 
 ```bash
+# CI 发布（推荐）— 推送 tag 后由 GitHub Actions 自动构建并签名
+npm run release:publish -- --ci X.Y.Z
+
+# 本地发布（传统方式，无 artifact attestation）
 npm run release:publish -- X.Y.Z
 ```
 

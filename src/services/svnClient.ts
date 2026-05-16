@@ -55,7 +55,7 @@ export class SvnClient {
           encoding: 'buffer'
         });
         // 明确按 UTF-8 解码，不通过 repair 流程，避免 xml 标签被错误替换
-        const text = iconv.decode(stdout as Buffer, 'utf8');
+        const text = iconv.decode(stdout, 'utf8');
         this.debugLog("[Vault SVN] 命令执行成功 (raw utf8)", { binary, args: safeArgs, stdoutLength: text.length });
         return text;
       } catch (error) {
@@ -877,7 +877,7 @@ export class SvnClient {
     }
 
     // include raw buffer hex sample for debugging
-    const rawHexSample = (input as Buffer).subarray(0, 120).toString('hex');
+    const rawHexSample = input.subarray(0, 120).toString('hex');
 
     this.debugLog("[Vault SVN] 编码解码来源", {
       selectedSource: best.source,

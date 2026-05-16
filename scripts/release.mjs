@@ -41,6 +41,7 @@ function parseArgs(argv) {
   const positional = argv.filter((item) => !item.startsWith("--"));
   return {
     dryRun: flags.has("--dry-run"),
+    ci: flags.has("--ci"),
     version: positional[0]
   };
 }
@@ -58,7 +59,7 @@ function releaseExists(tag) {
   }
 }
 
-const { dryRun, version } = parseArgs(process.argv.slice(2));
+const { dryRun, ci, version } = parseArgs(process.argv.slice(2));
 if (!version) {
   fail("请传入版本号，例如：npm run release:publish -- 1.1.1 或 npm run release:dry-run -- 1.1.1");
 }
@@ -101,7 +102,14 @@ for (const asset of assets) {
 }
 
 if (dryRun) {
-  console.log(`[release] dry-run 成功：${tag} 通过所有检查，未执行 gh release create`);
+  console.log(`[release] dry-run 成功：${tag} 通过所有检查，未执行发布`);
+  process.exit(0);
+}
+
+if (ci) {
+  // CI 模式：推 tag 触发 GitHub Actions (含 artifact attestation)
+  run("git", ["push", "origin", tag]);
+  console.log(`[release] tag ${tag} 已推送，CI 将自动构建、签名并发布`);
   process.exit(0);
 }
 
