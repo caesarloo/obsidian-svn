@@ -78,18 +78,21 @@ if (!existsSync(notesFile)) {
 
 console.log(`[release] ${dryRun ? "开始发布预检查" : "开始发布"} ${tag}`);
 
-try {
-  run("gh", ["auth", "status"]);
-} catch {
-  fail("gh 未登录，请先执行 gh auth login");
-}
-
-try {
-  if (releaseExists(tag)) {
-    fail(`Release ${tag} 已存在，请先删除或更换版本号`);
+if (!ci) {
+  // 本地发布模式需要 gh CLI
+  try {
+    run("gh", ["auth", "status"]);
+  } catch {
+    fail("gh 未登录，请先执行 gh auth login");
   }
-} catch (error) {
-  fail(`检查 Release 状态失败：${String(error?.message ?? error)}`);
+
+  try {
+    if (releaseExists(tag)) {
+      fail(`Release ${tag} 已存在，请先删除或更换版本号`);
+    }
+  } catch (error) {
+    fail(`检查 Release 状态失败：${String(error?.message ?? error)}`);
+  }
 }
 
 runNpm(["run", "build"]);
@@ -107,7 +110,8 @@ if (dryRun) {
 }
 
 if (ci) {
-  // CI 模式：推 tag 触发 GitHub Actions (含 artifact attestation)
+  // CI 模式：创建 tag 并推送，触发 GitHub Actions (含 artifact attestation)
+  run("git", ["tag", tag]);
   run("git", ["push", "origin", tag]);
   console.log(`[release] tag ${tag} 已推送，CI 将自动构建、签名并发布`);
   process.exit(0);
