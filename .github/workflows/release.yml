@@ -55,6 +55,7 @@ jobs:
             dist/main.js
             dist/manifest.json
             dist/styles.css
-          generate_release_notes: false
           fail_on_unmatched_files: true
           make_latest: true
+          # release notes: RELEASE_v* tag 版本 (支持带 v 和不带 v 两种 tag 格式)
+          body_path: RELEASE_v${{ github.ref_name }}.md
