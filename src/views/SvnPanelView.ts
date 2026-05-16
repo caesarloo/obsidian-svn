@@ -340,7 +340,7 @@ export class SvnPanelView extends ItemView {
       cls: "svn-tree-label svn-tree-link-btn",
       text: entry.fileName,
       attr: {
-        title: `查看差异：${entry.path}`,
+        title: entry.path,
         "aria-label": `查看差异：${entry.path}`
       }
     });

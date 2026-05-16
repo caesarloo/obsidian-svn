@@ -179,6 +179,7 @@
   align-items: center;
   gap: 6px;
   padding: 4px;
+  overflow: hidden;
 }
 
 .svn-tree-folder {
@@ -192,7 +193,10 @@
 
 .svn-tree-label {
   flex: 1;
-  word-break: break-all;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .svn-tree-link-btn {
@@ -209,7 +213,7 @@
 }
 
 .svn-tree-actions {
-  margin-left: auto;
+  flex-shrink: 0;
   display: inline-flex;
   gap: 4px;
 }
