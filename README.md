@@ -10,13 +10,13 @@
 
 > ⚠️ **Permissions**: This plugin invokes the system `svn` CLI via Node.js `child_process.execFile` and accesses SVN working copies on the local filesystem via `fs`. It only operates on paths you configure in settings. These permissions are required for SVN version control functionality and cannot be replaced by the Obsidian vault API.
 
-**Current stable version**: `1.1.12`
+**Current stable version**: `1.1.13`
 
-**Latest release**: https://github.com/caesarloo/obsidian-svn/releases/tag/1.1.12
+**Latest release**: https://github.com/caesarloo/obsidian-svn/releases/tag/1.1.13
 
 ### Installation
 
-1. Go to the [latest release page](https://github.com/caesarloo/obsidian-svn/releases/tag/1.1.10) and download these 3 files:
+1. Go to the [latest release page](https://github.com/caesarloo/obsidian-svn/releases/tag/1.1.13) and download these 3 files:
    - `main.js`
    - `manifest.json`
    - `styles.css`
@@ -73,6 +73,7 @@ When conflicts are detected, the plugin shows a conflict indicator. To resolve:
 - Commit staged changes
 - Automatic commit summary generation (non-blocking on failure)
 - Conflict detection and marking resolved
+- Selectable file path in diff view for easy copy/paste
 
 ### FAQ
 
@@ -108,9 +109,9 @@ Vault SVN 是一个 Obsidian **桌面端**插件，用于在库内管理 SVN 工
 
 > ⚠️ **权限说明**：本插件通过 Node.js `child_process.execFile` 调用系统已安装的 `svn` CLI 命令，并使用 `fs` 模块直接访问文件系统上的 SVN 工作副本。插件仅在用户配置的工作副本路径下执行 SVN 操作，不会主动访问其他目录。这些权限是 SVN 版本管理功能所必需的，无法通过 Obsidian vault API 替代。
 
-当前稳定版本：`1.1.12`
+当前稳定版本：`1.1.13`
 
-最新发布页：https://github.com/caesarloo/obsidian-svn/releases/tag/1.1.12
+最新发布页：https://github.com/caesarloo/obsidian-svn/releases/tag/1.1.13
 
 
 
@@ -171,6 +172,7 @@ Vault SVN 是一个 Obsidian **桌面端**插件，用于在库内管理 SVN 工
 - 提交已暂存变更
 - 提交摘要自动生成（失败不阻断手动提交）
 - 冲突提示与标记已解决
+- 差异视图文件路径可选中复制
 
 ### 8. 常见问题
 
