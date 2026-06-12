@@ -324,6 +324,8 @@
   font-weight: 600;
   margin-bottom: 8px;
   word-break: break-all;
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 .svn-diff-lines {
