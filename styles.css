@@ -164,8 +164,14 @@
 }
 
 .svn-status-tree-scroll {
-  max-height: 460px;
+  max-height: calc(100vh - 380px);
+  min-height: 200px;
   overflow-y: auto;
+}
+
+/* 防止 flex 压缩子项：内容超高时压缩会导致根文件行被压扁、文件名裁剪 */
+.svn-status-tree > * {
+  flex-shrink: 0;
 }
 
 .svn-folder-block {
