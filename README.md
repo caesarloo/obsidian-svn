@@ -89,6 +89,10 @@ A: Run `svn --version` in your terminal to verify installation. If installed but
 
 A: Check for unresolved conflicts or file permission issues.
 
+### Known Issues
+
+- **Settings search on Obsidian 1.13+** — The plugin's settings do not appear in Obsidian's global settings search on version 1.13.0 or later, because the plugin uses the legacy imperative settings API (`display()`) and does not implement the declarative `getSettingDefinitions()` yet. The settings page itself works normally. A fix is planned for **v1.3.0**.
+
 ### Development
 
 ```bash
@@ -189,3 +193,7 @@ Vault SVN 是一个 Obsidian **桌面端**插件，用于在库内管理 SVN 工
 #### 提交失败
 
 - 检查是否存在冲突或权限问题。
+
+### 9. 已知问题
+
+- **Obsidian 1.13+ 设置搜索** — 插件使用旧版命令式设置 API（`display()`），尚未实现声明式 `getSettingDefinitions()`，因此在 Obsidian 1.13.0 及以上版本中，插件设置不会出现在全局"设置搜索"里。设置页本身功能正常。计划在 **v1.3.0** 中修复。
