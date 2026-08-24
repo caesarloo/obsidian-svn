@@ -5,7 +5,7 @@ import {
   TFile,
   WorkspaceLeaf
 } from "obsidian";
-import { SvnClient } from "./services/svnClient";
+import { SvnClient } from "@caesarloo/simple-svn-client";
 import { SvnPanelView } from "./views/SvnPanelView";
 import { SvnDiffView } from "./views/SvnDiffView";
 import { ObsidianSvnSettingTab } from "./views/ObsidianSvnSettingTab";
@@ -123,7 +123,13 @@ export default class ObsidianSvnPlugin extends Plugin {
   }
 
   getSvnClient(): SvnClient {
-    return new SvnClient(this.settings.svnBinaryPath, this.settings.workingCopyPath, this.settings.enableDebugLog);
+    return new SvnClient(this.settings.workingCopyPath, {
+      svnBinaryPath: this.settings.svnBinaryPath,
+      enableDebugLog: this.settings.enableDebugLog,
+      // 0 = 不设超时，与旧版本地实现（无 timeout）行为保持一致；
+      // 避免大型仓库 svn update / 大文件 diff 超过默认 60s 被中断
+      timeoutMs: 0
+    });
   }
 
   debugLog(message: string, details?: unknown): void {

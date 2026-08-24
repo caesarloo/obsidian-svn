@@ -1,5 +1,5 @@
 import { ItemView, Modal, Notice, TFile, WorkspaceLeaf, setIcon } from "obsidian";
-import { generateSummaryWithFallback } from "../services/summaryService";
+import { generateSummaryWithFallback } from "@caesarloo/simple-svn-client";
 import { t, type Lang } from "../i18n";
 import type { GroupedStatus, ObsidianSvnPlugin, SvnStatusEntry, SvnStatusKind, UpdateResult } from "../types";
 

@@ -1,14 +1,14 @@
 import type { Plugin } from "obsidian";
-import type { SvnClient } from "./services/svnClient";
+import type { SvnClient, SvnStatusEntry, SvnDiff } from "@caesarloo/simple-svn-client";
 
-export type SvnStatusKind = "added" | "modified" | "deleted" | "conflict" | "untracked" | "missing";
-
-export interface SvnStatusEntry {
-  path: string;
-  fileName: string;
-  folderPath: string;
-  status: SvnStatusKind;
-}
+export type {
+  SvnStatusKind,
+  SvnStatusEntry,
+  DiffLine,
+  SvnDiff,
+  UpdateEntry,
+  UpdateResult
+} from "@caesarloo/simple-svn-client";
 
 export interface GroupedStatus {
   rootFiles: SvnStatusEntry[];
@@ -35,35 +35,4 @@ export interface ObsidianSvnPlugin extends Plugin {
   openDiffInEditor(diff: SvnDiff): Promise<void>;
   syncAutoRefreshInterval(): Promise<void>;
   saveSettings(): Promise<void>;
-}
-
-// 文件差异相关类型
-export interface DiffLine {
-  lineNumber: number;
-  content: string;
-  type: "added" | "deleted" | "unchanged";
-}
-
-export interface SvnDiff {
-  filePath: string;
-  lines: DiffLine[];
-  compareMode?: "working-copy" | "previous-revision" | "file-content";
-}
-
-// 更新反馈相关类型
-export interface UpdateEntry {
-  path: string;
-  status: "added" | "modified" | "deleted" | "unchanged";
-  size?: number;
-}
-
-export interface UpdateResult {
-  entries: UpdateEntry[];
-  summary: {
-    total: number;
-    added: number;
-    modified: number;
-    deleted: number;
-    totalSize?: number;
-  };
 }
