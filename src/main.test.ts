@@ -95,3 +95,47 @@ describe("ObsidianSvnPlugin.getSvnClient", () => {
     expect(SvnClientMock).toHaveBeenCalledTimes(2);
   });
 });
+
+describe("ObsidianSvnPlugin.loadSettings / saveSettings", () => {
+  function createPluginWithVault(basePath: string): ObsidianSvnPlugin {
+    return new ObsidianSvnPlugin(
+      { vault: { adapter: { basePath } } } as never,
+      { id: "vault-svn", version: "1.2.0" } as never
+    );
+  }
+
+  it("忽略 data.json 里的旧 workingCopyPath，始终使用当前 vault 根目录", async () => {
+    const plugin = createPluginWithVault("C:/Users/CaeserLoo/OneDrive - qizhenstudio/svn/支付大模型项目");
+    (plugin.loadData as unknown as jest.Mock).mockResolvedValue({
+      workingCopyPath: "C:/Users/11010356/OneDrive - qizhenstudio/svn/支付大模型项目",
+      svnBinaryPath: "svn"
+    });
+
+    await plugin.loadSettings();
+
+    expect(plugin.settings.workingCopyPath).toBe(
+      "C:/Users/CaeserLoo/OneDrive - qizhenstudio/svn/支付大模型项目"
+    );
+  });
+
+  it("data.json 无 workingCopyPath 时回落到当前 vault 根目录", async () => {
+    const plugin = createPluginWithVault("/home/user/vault");
+    (plugin.loadData as unknown as jest.Mock).mockResolvedValue({ svnBinaryPath: "svn" });
+
+    await plugin.loadSettings();
+
+    expect(plugin.settings.workingCopyPath).toBe("/home/user/vault");
+  });
+
+  it("保存设置时不把 workingCopyPath 写回 data.json", async () => {
+    const plugin = createPluginWithVault("/home/user/vault");
+
+    await plugin.saveSettings();
+
+    const saveDataMock = plugin.saveData as unknown as jest.Mock;
+    expect(saveDataMock).toHaveBeenCalledTimes(1);
+    const persisted = saveDataMock.mock.calls[0][0] as Record<string, unknown>;
+    expect(persisted).not.toHaveProperty("workingCopyPath");
+    expect(persisted.svnBinaryPath).toBe(plugin.settings.svnBinaryPath);
+  });
+});

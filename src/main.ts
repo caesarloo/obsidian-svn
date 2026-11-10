@@ -107,8 +107,12 @@ export default class ObsidianSvnPlugin extends Plugin {
 
     this.settings = {
       ...DEFAULT_SETTINGS,
-      workingCopyPath: basePath,
       ...loaded,
+      // workingCopyPath 是机器相关的绝对路径，不能从 data.json 恢复：
+      // vault 会被用户移动位置、或经云盘在多台设备间同步，data.json 里的旧路径
+      // 会让 svn 在已不存在/非工作副本的目录里执行，界面却已没有修改入口。
+      // 因此每次加载一律以当前 vault 根目录为准。
+      workingCopyPath: basePath,
       enableDebugLog,
       debugLogMigratedToDefaultOff: true
     };
@@ -119,7 +123,11 @@ export default class ObsidianSvnPlugin extends Plugin {
   }
 
   async saveSettings(): Promise<void> {
-    await this.saveData(this.settings);
+    // 不把 workingCopyPath 写入 data.json：该文件随 vault 一起被移动/云同步，
+    // 持久化绝对路径会让换机、换用户名、移动仓库后插件指向错误目录。
+    const persisted: Partial<ObsidianSvnSettings> = { ...this.settings };
+    delete persisted.workingCopyPath;
+    await this.saveData(persisted);
   }
 
   getSvnClient(): SvnClient {
