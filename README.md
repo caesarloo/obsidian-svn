@@ -10,13 +10,13 @@
 
 > ⚠️ **Permissions**: This plugin invokes the system `svn` CLI via Node.js `child_process.execFile` and accesses SVN working copies on the local filesystem via `fs`. It only operates on paths you configure in settings. These permissions are required for SVN version control functionality and cannot be replaced by the Obsidian vault API.
 
-**Current stable version**: `1.2.2`
+**Current stable version**: `1.2.3`
 
-**Latest release**: https://github.com/caesarloo/obsidian-svn/releases/tag/1.2.2
+**Latest release**: https://github.com/caesarloo/obsidian-svn/releases/tag/1.2.3
 
 ### Installation
 
-1. Go to the [latest release page](https://github.com/caesarloo/obsidian-svn/releases/tag/1.2.2) and download these 3 files:
+1. Go to the [latest release page](https://github.com/caesarloo/obsidian-svn/releases/tag/1.2.3) and download these 3 files:
    - `main.js`
    - `manifest.json`
    - `styles.css`
@@ -26,7 +26,7 @@
 
 ### Prerequisites
 
-- **Desktop Obsidian only** (not available on mobile).
+- **Desktop Obsidian 1.13.0 or later** (not available on mobile). The settings tab uses Obsidian's declarative settings API, which requires 1.13.0+.
 - **SVN CLI** must be installed and available on your system. Verify with `svn --version` in your terminal.
 - You need a local SVN working copy path.
 
@@ -91,7 +91,7 @@ A: Check for unresolved conflicts or file permission issues.
 
 ### Known Issues
 
-None currently. The settings page now implements the declarative `getSettingDefinitions()` API (Obsidian 1.13+), so plugin settings appear in Obsidian's global settings search; older versions fall back to the imperative `display()` rendering.
+None currently. The plugin requires Obsidian 1.13.0 or later and implements the declarative `getSettingDefinitions()` API, so plugin settings appear in Obsidian's global settings search.
 
 ### Development
 
@@ -113,9 +113,9 @@ Vault SVN 是一个 Obsidian **桌面端**插件，用于在库内管理 SVN 工
 
 > ⚠️ **权限说明**：本插件通过 Node.js `child_process.execFile` 调用系统已安装的 `svn` CLI 命令，并使用 `fs` 模块直接访问文件系统上的 SVN 工作副本。插件仅在用户配置的工作副本路径下执行 SVN 操作，不会主动访问其他目录。这些权限是 SVN 版本管理功能所必需的，无法通过 Obsidian vault API 替代。
 
-当前稳定版本：`1.2.2`
+当前稳定版本：`1.2.3`
 
-最新发布页：https://github.com/caesarloo/obsidian-svn/releases/tag/1.2.2
+最新发布页：https://github.com/caesarloo/obsidian-svn/releases/tag/1.2.3
 
 
 
@@ -131,7 +131,7 @@ Vault SVN 是一个 Obsidian **桌面端**插件，用于在库内管理 SVN 工
 
 ### 2. 前置条件
 
-- 仅支持桌面端 Obsidian。
+- 仅支持桌面端 Obsidian **1.13.0 或更高版本**（设置页使用声明式设置 API，需 1.13.0+）。
 - 系统中必须已安装可执行的 `svn` 命令行工具。
 - 你需要有可访问的 SVN 工作副本本地路径。
 
@@ -196,4 +196,4 @@ Vault SVN 是一个 Obsidian **桌面端**插件，用于在库内管理 SVN 工
 
 ### 9. 已知问题
 
-暂无。设置页已实现声明式 `getSettingDefinitions()` API（Obsidian 1.13+），插件设置会出现在全局"设置搜索"里；较早版本回落到命令式 `display()` 渲染。
+暂无。插件要求 Obsidian 1.13.0 或更高版本，设置页已实现声明式 `getSettingDefinitions()` API，插件设置会出现在全局"设置搜索"里。

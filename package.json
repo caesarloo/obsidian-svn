@@ -1,6 +1,6 @@
 {
   "name": "obsidian-svn",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "private": true,
   "description": "Vault SVN plugin",
   "main": "dist/main.js",
@@ -20,7 +20,7 @@
     "@types/node": "^22.10.2",
     "esbuild": "^0.25.0",
     "eslint": "^9.39.3",
-    "eslint-plugin-obsidianmd": "^0.1.9",
+    "eslint-plugin-obsidianmd": "^0.5.1",
     "jest": "^30.2.0",
     "obsidian": "^1.14.4",
     "ts-jest": "^29.4.6",
