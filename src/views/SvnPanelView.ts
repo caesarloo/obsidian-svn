@@ -3,6 +3,61 @@ import { generateSummaryWithFallback } from "@caesarloo/simple-svn-client";
 import { t, type Lang } from "../i18n";
 import type { GroupedStatus, ObsidianSvnPlugin, SvnStatusEntry, SvnStatusKind, UpdateResult } from "../types";
 
+/**
+ * 收集目录分组下所有「未跟踪」条目的路径。
+ *
+ * svn revert 对未跟踪（unversioned）条目无效，目录层级还原时必须另行删除这些
+ * 条目，否则点还原后未跟踪文件仍留在磁盘上（单个文件还原原本就有删除分支，
+ * 目录还原漏了这一分支，故在此统一收集）。
+ *
+ * 返回路径去重后按层级由浅到深排序：父目录先删，其下的子条目随后 stat 不到、
+ * 直接跳过即可，不会因「父目录已删」而报错。
+ */
+export function collectUntrackedPaths(entries: SvnStatusEntry[]): string[] {
+  const unique = new Set<string>();
+  for (const entry of entries) {
+    if (entry.status === "untracked" && entry.path) {
+      unique.add(entry.path);
+    }
+  }
+
+  return [...unique].sort((a, b) => {
+    const depthA = a.split("/").length;
+    const depthB = b.split("/").length;
+    return depthA === depthB ? a.localeCompare(b) : depthA - depthB;
+  });
+}
+
+export interface UntrackedRemovalResult {
+  /** 实际删除成功的条目数（已不存在的条目不计入） */
+  deletedCount: number;
+  /** 删除抛错的条目路径 */
+  failedPaths: string[];
+}
+
+/**
+ * 按 collectUntrackedPaths 的顺序删除未跟踪条目。单个条目失败不中断其余条目。
+ * `removePath` 由调用方注入（视图里是 vault 文件删除），便于单元测试。
+ */
+export async function removeUntrackedEntries(
+  entries: SvnStatusEntry[],
+  removePath: (path: string) => Promise<boolean>
+): Promise<UntrackedRemovalResult> {
+  const result: UntrackedRemovalResult = { deletedCount: 0, failedPaths: [] };
+
+  for (const path of collectUntrackedPaths(entries)) {
+    try {
+      if (await removePath(path)) {
+        result.deletedCount += 1;
+      }
+    } catch {
+      result.failedPaths.push(path);
+    }
+  }
+
+  return result;
+}
+
 function getStatusLabel(status: SvnStatusKind, lang: Lang): string {
   const labels: Record<string, string> = {
     added: t("status.added", lang),
@@ -454,9 +509,36 @@ export class SvnPanelView extends ItemView {
     try {
       this.showLoading(t("panel.reverting", this.lang));
       const client = this.plugin.getSvnClient();
-      await client.revert([folder], true);
+
+      // svn revert 只对已纳入版本控制的条目生效；未跟踪条目必须走文件删除，
+      // 否则目录层级还原后这些文件仍留在磁盘上（与单文件还原行为不一致）。
+      const untrackedPaths = collectUntrackedPaths(entries);
+      const hasTrackedEntries = entries.some((entry) => entry.status !== "untracked");
+
+      if (hasTrackedEntries) {
+        await client.revert([folder], true);
+      }
+
+      const removal = untrackedPaths.length
+        ? await removeUntrackedEntries(entries, (path) => this.removeUntrackedPath(path))
+        : { deletedCount: 0, failedPaths: [] as string[] };
+      const { deletedCount, failedPaths } = removal;
+
       entries.forEach((entry) => this.staged.delete(entry.path));
-      new Notice(t("panel.revertSuccess", this.lang, { path: folder }));
+
+      if (deletedCount > 0) {
+        new Notice(
+          t("panel.revertFolderUntrackedDeleted", this.lang, { count: deletedCount, folder })
+        );
+      }
+      if (failedPaths.length) {
+        new Notice(
+          t("panel.revertFolderUntrackedPartial", this.lang, { paths: failedPaths.join("、") })
+        );
+      }
+      if (hasTrackedEntries || deletedCount > 0) {
+        new Notice(t("panel.revertSuccess", this.lang, { path: folder }));
+      }
       await this.refreshStatus(false);
     } catch (error) {
       new Notice(t("panel.revertFailed", this.lang, { msg: (error as Error).message }));
@@ -465,26 +547,38 @@ export class SvnPanelView extends ItemView {
     }
   }
 
+  /**
+   * 删除一个未跟踪条目（文件或整个目录）。条目已不存在时返回 false，不视为错误。
+   * 目录层级还原与单文件还原共用此方法，保证两条路径的删除行为一致。
+   */
+  private async removeUntrackedPath(path: string): Promise<boolean> {
+    const stat = await this.app.vault.adapter.stat(path);
+    if (!stat) {
+      return false;
+    }
+
+    if (stat.type === "folder") {
+      await this.app.vault.adapter.rmdir(path, true);
+    } else {
+      await this.app.vault.adapter.remove(path);
+    }
+
+    return true;
+  }
+
   private async revertFile(path: string, status?: SvnStatusKind): Promise<void> {
     try {
       this.showLoading(t("panel.reverting", this.lang));
 
       if (status === "untracked") {
-        const stat = await this.app.vault.adapter.stat(path);
-        if (!stat) {
-          new Notice(path);
-          await this.refreshStatus(false);
-          return;
-        }
-
-        if (stat.type === "folder") {
-          await this.app.vault.adapter.rmdir(path, true);
-        } else {
-          await this.app.vault.adapter.remove(path);
-        }
+        const removed = await this.removeUntrackedPath(path);
 
         this.staged.delete(path);
-        new Notice(t("panel.revertUntrackedDeleted", this.lang, { path }));
+        if (removed) {
+          new Notice(t("panel.revertUntrackedDeleted", this.lang, { path }));
+        } else {
+          new Notice(path);
+        }
         await this.refreshStatus(false);
         return;
       }
