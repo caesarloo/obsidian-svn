@@ -1,7 +1,7 @@
 {
   "id": "vault-svn",
   "name": "Vault SVN",
-  "version": "1.2.3",
+  "version": "1.2.4",
   "minAppVersion": "1.13.0",
   "description": "Manage SVN working copies inside your vault. Desktop-only: executes system svn CLI commands via shell (child_process) and accesses filesystem directly.",
   "author": "caesarloo",
